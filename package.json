@@ -1,0 +1,37 @@
+{
+  "name": "mtcit-timeline-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@fontsource/comfortaa": "^5.1.1",
+    "@lottiefiles/dotlottie-react": "^0.13.3",
+    "@mui/icons-material": "^6.4.4",
+    "@mui/material": "^6.4.4",
+    "ambient-cbg": "^1.0.4",
+    "axios": "^1.7.9",
+    "canvas-confetti": "^1.9.3",
+    "framer-motion": "^12.10.1",
+    "next": "^15.2.5",
+    "react": "^19.0.0",
+    "react-confetti": "^6.2.2",
+    "react-dom": "^19.0.0",
+    "react-loading-indicators": "^1.0.0",
+    "socket.io-client": "^4.8.1",
+    "three": "^0.176.0",
+    "vanta": "^0.5.24",
+    "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.1"
+  }
+}
