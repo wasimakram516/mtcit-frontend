@@ -15,8 +15,11 @@ import {
   Avatar,
   CircularProgress,
   Autocomplete,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
-import { Add, Delete, Edit } from "@mui/icons-material";
+import { Add, Delete, Edit, ExpandMore } from "@mui/icons-material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useRouter } from "next/navigation";
 import { useMessage } from "@/app/context/MessageContext";
@@ -27,8 +30,11 @@ import {
   deleteMedia,
 } from "@/services/DisplayMediaService";
 import ConfirmationDialog from "@/app/components/ConfirmationDialog";
+import MediaLayerManager from "@/app/components/MediaLayerManager";
 import { useLanguage } from "../context/LanguageContext";
 import LanguageSelector from "../components/LanguageSelector";
+import CMSBackgroundManager from "../components/CMSBackgroundManager";
+import { Tabs, Tab } from "@mui/material";
 
 export default function CMSPage() {
   const router = useRouter();
@@ -49,6 +55,7 @@ export default function CMSPage() {
     previewEn: null,
     previewAr: null,
     pinpointPreview: null,
+    layers: [],
   });
   const [errors, setErrors] = useState({});
   const [confirmationOpen, setConfirmationOpen] = useState(false);
@@ -56,10 +63,12 @@ export default function CMSPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [dynamicOptions, setDynamicOptions] = useState({});
+  const [activeTab, setActiveTab] = useState(0);
 
   const translations = {
     en: {
-      mediaManager: "Media Manager (CMS)",
+      adminDashboard: "Admin Dashboard",
+      mediaManager: "Media Manager",
       addMedia: "Add Media",
       editMedia: "Edit Media & Pinpoint Details",
       newMedia: "Add New Media & Pinpoint",
@@ -82,17 +91,32 @@ export default function CMSPage() {
       subcategoryHelper: "Select or type a new subcategory name (optional).",
       englishUpload: "English Media Upload",
       arabicUpload: "Arabic Media Upload",
-      pinpointUpload: "Pinpoint Icon Upload (Optional)",
+      mediaLayers: "Media Layers",
+      addLayer: "Add Layer",
+      removeLayer: "Remove Layer",
+      layerImage: "Layer Image",
+      layerPreview: "Layer Preview",
+      layerPosition: "Layer Position",
+      layerSize: "Layer Size",
+      layerOpacity: "Layer Opacity",
+      layerRotation: "Layer Rotation",
+      layerX: "Layer X Position (%)",
+      layerY: "Layer Y Position (%)",
+      layerWidth: "Layer Width (%)",
+      layerHeight: "Layer Height (%)",
+      layerTypeHelper: "Upload one or more positioned images for this media item.",
+      pinpointUpload: "Media Logo Upload (Optional)",
       pinpointUploadHelper:
-        "Upload an image that will act as a pinpoint marker on your roadmap (optional).",
-      pinpointPosition: "Pinpoint Position (Optional)",
-      pinpointPositionHelper:
-        "Set the X and Y position of the pinpoint marker as a percentage (0–100%).",
-      pinpointX: "Pinpoint X Position (%)",
-      pinpointY: "Pinpoint Y Position (%)",
+        "Upload an image that will act as a logo for this media item (optional).",
+      pinpointPosition: "Logo Position (Optional)",
+      pinpointPositionHelper: "Set the X and Y position of the logo as a percentage (0–100%).",
+      pinpointX: "Logo X Position (%)",
+      pinpointY: "Logo Y Position (%)",
+      backgroundManager: "Background Manager",
     },
     ar: {
-      mediaManager: "مدير الوسائط (CMS)",
+      adminDashboard: "لوحة التحكم",
+      mediaManager: "مدير الوسائط",
       addMedia: "إضافة وسائط",
       editMedia: "تعديل الوسائط وتفاصيل العلامة",
       newMedia: "إضافة وسائط جديدة وعلامة",
@@ -115,17 +139,54 @@ export default function CMSPage() {
       subcategoryHelper: "اختر أو اكتب اسم فئة فرعية جديدة (اختياري).",
       englishUpload: "تحميل الوسائط الإنجليزية",
       arabicUpload: "تحميل الوسائط العربية",
-      pinpointUpload: "تحميل رمز العلامة (اختياري)",
-      pinpointUploadHelper:
-        "قم بتحميل صورة تعمل كرمز علامة على الخريطة (اختياري).",
-      pinpointPosition: "موقع العلامة (اختياري)",
-      pinpointPositionHelper: "عيّن موضع العلامة بالنسبة المئوية (0-100٪).",
-      pinpointX: "موضع X للعلامة (%)",
-      pinpointY: "موضع Y للعلامة (%)",
+      mediaLayers: "طبقات الوسائط",
+      addLayer: "إضافة طبقة",
+      removeLayer: "إزالة الطبقة",
+      layerImage: "صورة الطبقة",
+      layerPreview: "معاينة الطبقة",
+      layerPosition: "موضع الطبقة",
+      layerSize: "حجم الطبقة",
+      layerOpacity: "شفافية الطبقة",
+      layerRotation: "دوران الطبقة",
+      layerX: "موضع X للطبقة (%)",
+      layerY: "موضع Y للطبقة (%)",
+      layerWidth: "عرض الطبقة (%)",
+      layerHeight: "ارتفاع الطبقة (%)",
+      layerTypeHelper: "قم بتحميل صورة أو أكثر يمكن وضعها داخل هذا العنصر.",
+      pinpointUpload: "تحميل شعار الوسائط (اختياري)",
+      pinpointUploadHelper: "قم بتحميل صورة تعمل كشعار لهذه الوسائط (اختياري).",
+      pinpointPosition: "موقع الشعار (اختياري)",
+      pinpointPositionHelper: "عيّن موضع الشعار بالنسبة المئوية (0-100٪).",
+      pinpointX: "موضع X للشعار (%)",
+      pinpointY: "موضع Y للشعار (%)",
+      backgroundManager: "مدير الخلفيات",
     },
   };
 
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   const t = translations[language];
+
+  const createEmptyLayer = (layer = {}) => ({
+    fileEn: layer.fileEn || layer.file || null,
+    fileAr: layer.fileAr || null,
+    existingUrlEn: layer.existingUrlEn || layer.existingUrl || "",
+    existingUrlAr: layer.existingUrlAr || "",
+    previewEn: layer.previewEn || layer.preview || "",
+    previewAr: layer.previewAr || "",
+    title: layer.title || "",
+    description: layer.description || "",
+    typeEn: layer.typeEn || layer.type || "image",
+    typeAr: layer.typeAr || "image",
+    position: layer.position || { x: 0, y: 0 },
+    size: layer.size || { width: 100, height: 100 },
+    opacity: layer.opacity ?? 1,
+    rotation: layer.rotation ?? 0,
+    zIndex: layer.zIndex ?? 0,
+    isActive: layer.isActive !== undefined ? layer.isActive : true,
+  });
 
   const fetchMedia = async () => {
     try {
@@ -168,7 +229,7 @@ export default function CMSPage() {
       newErrors.fileAr = "Please upload the Arabic media file.";
     }
 
-    // ✅ Validate Pinpoint X (allow negative values)
+    // Validate Pinpoint X (allow negative values)
     if (formData.pinpointX !== "" && formData.pinpointX !== null) {
       const x = Number(formData.pinpointX);
       if (isNaN(x) || x > 100) {
@@ -177,7 +238,7 @@ export default function CMSPage() {
       }
     }
 
-    // ✅ Validate Pinpoint Y (allow negative values)
+    // Validate Pinpoint Y (allow negative values)
     if (formData.pinpointY !== "" && formData.pinpointY !== null) {
       const y = Number(formData.pinpointY);
       if (isNaN(y) || y > 100) {
@@ -205,6 +266,108 @@ export default function CMSPage() {
     return true;
   };
 
+  const updateLayerAtIndex = (index, key, value) => {
+    setFormData((current) => ({
+      ...current,
+      layers: current.layers.map((layer, layerIndex) =>
+        layerIndex === index ? { ...layer, [key]: value } : layer
+      ),
+    }));
+  };
+
+  const updateLayerPosition = (index, axis, value) => {
+    setFormData((current) => ({
+      ...current,
+      layers: current.layers.map((layer, layerIndex) =>
+        layerIndex === index
+          ? {
+              ...layer,
+              position: { ...layer.position, [axis]: value },
+            }
+          : layer
+      ),
+    }));
+  };
+
+  const updateLayerSize = (index, dimension, value) => {
+    setFormData((current) => ({
+      ...current,
+      layers: current.layers.map((layer, layerIndex) =>
+        layerIndex === index
+          ? {
+              ...layer,
+              size: { ...layer.size, [dimension]: value },
+            }
+          : layer
+      ),
+    }));
+  };
+
+  const addLayer = () => {
+    setFormData((current) => ({
+      ...current,
+      layers: [...current.layers, createEmptyLayer()],
+    }));
+  };
+
+  const removeLayer = (index) => {
+    setFormData((current) => ({
+      ...current,
+      layers: current.layers.filter((_, layerIndex) => layerIndex !== index),
+    }));
+  };
+
+  const setLayerFile = (index, file) => {
+    setFormData((current) => ({
+      ...current,
+      layers: current.layers.map((layer, layerIndex) =>
+        layerIndex === index
+          ? {
+              ...layer,
+              file,
+              existingUrl: file ? "" : layer.existingUrl,
+              preview: file ? URL.createObjectURL(file) : layer.existingUrl,
+            }
+          : layer
+      ),
+    }));
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingItem(null);
+
+    // Revoke main previews if they are blob URLs
+    [formData.previewEn, formData.previewAr, formData.pinpointPreview].forEach(
+      (url) => {
+        if (url?.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+      }
+    );
+
+    // Revoke layer previews
+    formData.layers.forEach((layer) => {
+      if (layer.previewEn?.startsWith("blob:")) URL.revokeObjectURL(layer.previewEn);
+      if (layer.previewAr?.startsWith("blob:")) URL.revokeObjectURL(layer.previewAr);
+      if (layer.preview?.startsWith("blob:")) URL.revokeObjectURL(layer.preview);
+    });
+
+    setFormData({
+      category: "",
+      subcategory: "",
+      fileEn: null,
+      fileAr: null,
+      pinpointFile: null,
+      pinpointX: "",
+      pinpointY: "",
+      previewEn: null,
+      previewAr: null,
+      pinpointPreview: null,
+      layers: [],
+    });
+  };
+
   const handleSave = async () => {
     if (!validateForm()) return;
 
@@ -220,25 +383,53 @@ export default function CMSPage() {
       if (formData.pinpointX) payload.append("pinpointX", formData.pinpointX);
       if (formData.pinpointY) payload.append("pinpointY", formData.pinpointY);
 
+      const mediaLayerFilesEn = [];
+      const mediaLayerFilesAr = [];
+      const mediaLayerPayload = formData.layers
+        .filter((layer) => 
+          layer.fileEn || layer.fileAr || layer.existingUrlEn || layer.existingUrlAr || layer.existingUrl
+        )
+        .map((layer, index) => {
+          const isFileEn = layer.fileEn instanceof File;
+          const isFileAr = layer.fileAr instanceof File;
+
+          const fileIndexEn = isFileEn ? mediaLayerFilesEn.length : null;
+          if (isFileEn) mediaLayerFilesEn.push(layer.fileEn);
+
+          const fileIndexAr = isFileAr ? mediaLayerFilesAr.length : null;
+          if (isFileAr) mediaLayerFilesAr.push(layer.fileAr);
+
+          return {
+            fileIndex: fileIndexEn,
+            existingUrl: layer.existingUrlEn || (!layer.fileEn ? layer.existingUrl : ""),
+            fileIndexEn,
+            fileIndexAr,
+            existingUrlEn: layer.existingUrlEn || (!layer.fileEn ? layer.existingUrl : ""),
+            existingUrlAr: layer.existingUrlAr || "",
+            position: layer.position,
+            size: layer.size,
+            opacity: layer.opacity,
+            rotation: layer.rotation,
+            title: layer.title || "",
+            description: layer.description || "",
+            type: layer.typeEn || layer.type || "image", // Backward compatibility
+            typeEn: layer.typeEn || layer.type || "image",
+            typeAr: layer.typeAr || "image",
+            isActive: layer.isActive !== undefined ? layer.isActive : true,
+            zIndex: layer.zIndex ?? index,
+          };
+        });
+
+      payload.append("layers", JSON.stringify(mediaLayerPayload));
+      mediaLayerFilesEn.forEach((file) => payload.append("mediaLayers", file));
+      mediaLayerFilesAr.forEach((file) => payload.append("mediaLayersAr", file));
+
       const res = editingItem
         ? await updateMedia(editingItem._id, payload)
         : await createMedia(payload);
 
       showMessage(res.message || "Saved", "success");
-      setOpenDialog(false);
-      setEditingItem(null);
-      setFormData({
-        category: "",
-        subcategory: "",
-        fileEn: null,
-        fileAr: null,
-        pinpointFile: null,
-        pinpointX: "",
-        pinpointY: "",
-        previewEn: null,
-        previewAr: null,
-        pinpointPreview: null,
-      });
+      handleCloseDialog();
 
       fetchMedia();
     } catch (err) {
@@ -266,6 +457,13 @@ export default function CMSPage() {
 
   const openForm = (item = null) => {
     setEditingItem(item);
+    if (item?.layers?.length) {
+      item.layers.forEach((layer) => {
+        if (layer.file?.url?.startsWith("blob:")) {
+          URL.revokeObjectURL(layer.file.url);
+        }
+      });
+    }
     setFormData({
       category: item?.category || "",
       subcategory: item?.subcategory || "",
@@ -278,6 +476,27 @@ export default function CMSPage() {
       previewEn: item?.media?.en.url || null,
       previewAr: item?.media?.ar.url || null,
       pinpointPreview: item?.pinpoint?.file?.url || null,
+      layers:
+        item?.layers?.map((layer) =>
+          createEmptyLayer({
+            existingUrlEn: layer.fileEn?.url || layer.file?.url || "",
+            existingUrlAr: layer.fileAr?.url || "",
+            previewEn: layer.fileEn?.url || layer.file?.url || "",
+            previewAr: layer.fileAr?.url || "",
+            fileEn: null,
+            fileAr: null,
+            title: layer.title || "",
+            description: layer.description || "",
+            typeEn: layer.fileEn?.type || layer.file?.type || "image",
+            typeAr: layer.fileAr?.type || "image",
+            position: layer.position || { x: 0, y: 0 },
+            size: layer.size || { width: 100, height: 100 },
+            opacity: layer.opacity ?? 1,
+            rotation: layer.rotation ?? 0,
+            zIndex: layer.zIndex ?? 0,
+            isActive: layer.isActive !== undefined ? layer.isActive : true,
+          })
+        ) || [],
     });
     setOpenDialog(true);
   };
@@ -286,7 +505,7 @@ export default function CMSPage() {
     <Box sx={{ p: 4, position: "relative" }}>
       <LanguageSelector />
       <Typography variant="h4" fontWeight="bold">
-        {t.mediaManager}
+        {t.adminDashboard}
       </Typography>
 
       <IconButton
@@ -296,46 +515,37 @@ export default function CMSPage() {
         <LogoutIcon />
       </IconButton>
 
-      <Button
-        variant="contained"
-        startIcon={<Add />}
-        onClick={() => openForm()}
-        sx={{ mt: 2 }}
-      >
-        {t.addMedia}
-      </Button>
+      <Box sx={{ mt: 3, mb: 2, borderBottom: 1, borderColor: "divider" }}>
+        <Tabs value={activeTab} onChange={handleTabChange} centered>
+          <Tab label={t.mediaManager} />
+          <Tab label={t.backgroundManager} />
+        </Tabs>
+      </Box>
 
-      {/* Media list rendering here — unchanged */}
+      {activeTab === 0 && (
+        <Box sx={{ mt: 3, maxWidth: "800px", mx: "auto" }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 3,
+            }}
+          >
+            <Typography variant="h5" fontWeight="bold">
+              {t.mediaManager}
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => openForm()}
+            >
+              {t.addMedia}
+            </Button>
+          </Box>
 
-      {/* Logout Confirmation */}
-      <ConfirmationDialog
-        open={confirmLogout}
-        onClose={() => setConfirmLogout(false)}
-        onConfirm={logout}
-        title={t.logoutTitle}
-        message={t.logoutMessage}
-        confirmButtonText={t.logout}
-      />
-
-      {/* Delete Confirmation */}
-      <ConfirmationDialog
-        open={confirmationOpen}
-        onClose={() => setConfirmationOpen(false)}
-        onConfirm={handleDelete}
-        title={t.deleteMedia}
-        message={t.deleteMessage}
-        confirmButtonText={
-          actionLoading ? (
-            <CircularProgress size={20} color="inherit" />
-          ) : (
-            t.deleteMedia
-          )
-        }
-        confirmButtonProps={{ disabled: actionLoading }}
-      />
-
-      <Box sx={{ mt: 3, maxWidth: "800px", mx: "auto" }}>
-        {mediaList.map((item) => (
+          <Box>
+            {mediaList.map((item) => (
           <Box
             key={item._id}
             sx={{
@@ -371,14 +581,16 @@ export default function CMSPage() {
                 <Typography variant="caption" color="text.secondary">
                   {t.englishMedia}
                 </Typography>
-                {item.media?.en?.type === "image" ? (
+                {item.media?.en?.type === "image" && item.media.en?.url ? (
                   <Box
                     component="img"
                     src={item.media.en.url}
                     alt="English Media"
                     sx={{
-                      width: "200px",
-                      height: "auto",
+                      width: "150px",
+                      height: "100px",
+                      objectFit: "contain",
+                      backgroundColor: "#eee",
                       borderRadius: 2,
                       border: "1px solid #ddd",
                       mt: 1,
@@ -387,8 +599,8 @@ export default function CMSPage() {
                 ) : (
                   <Box
                     sx={{
-                      width: "100%",
-                      height: 130,
+                      width: "150px",
+                      height: "100px",
                       borderRadius: 2,
                       backgroundColor: "#eee",
                       display: "flex",
@@ -408,14 +620,16 @@ export default function CMSPage() {
                 <Typography variant="caption" color="text.secondary">
                   {t.arabicMedia}
                 </Typography>
-                {item.media?.ar?.type === "image" ? (
+                {item.media?.ar?.type === "image" && item.media.ar?.url ? (
                   <Box
                     component="img"
                     src={item.media.ar.url}
                     alt="Arabic Media"
                     sx={{
-                      width: "200px",
-                      height: "auto",
+                      width: "150px",
+                      height: "100px",
+                      objectFit: "contain",
+                      backgroundColor: "#eee",
                       borderRadius: 2,
                       border: "1px solid #ddd",
                       mt: 1,
@@ -424,8 +638,8 @@ export default function CMSPage() {
                 ) : (
                   <Box
                     sx={{
-                      width: "100%",
-                      height: 130,
+                      width: "150px",
+                      height: "100px",
                       borderRadius: 2,
                       backgroundColor: "#eee",
                       display: "flex",
@@ -507,9 +721,42 @@ export default function CMSPage() {
           </Box>
         ))}
       </Box>
+      </Box>
+      )}
 
-      {/* Form Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth>
+      {activeTab === 1 && (
+        <Box sx={{ mt: 3, maxWidth: "800px", mx: "auto" }}>
+          <CMSBackgroundManager />
+        </Box>
+      )}
+
+      {/* Logout Confirmation */}
+      <ConfirmationDialog
+        open={confirmLogout}
+        onClose={() => setConfirmLogout(false)}
+        onConfirm={logout}
+        title={t.logoutTitle}
+        message={t.logoutMessage}
+        confirmButtonText={t.logout}
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmationDialog
+        open={confirmationOpen}
+        onClose={() => setConfirmationOpen(false)}
+        onConfirm={handleDelete}
+        title={t.deleteMedia}
+        message={t.deleteMessage}
+        confirmButtonText={
+          actionLoading ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            t.deleteMedia
+          )
+        }
+        confirmButtonProps={{ disabled: actionLoading }}
+      />
+      <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth>
         <DialogTitle>{editingItem ? t.editMedia : t.newMedia}</DialogTitle>
         <DialogContent>
           <Typography variant="subtitle2" sx={{ mt: 2 }}>
@@ -579,20 +826,28 @@ export default function CMSPage() {
             }}
             error={!!errors.fileEn}
           />
-          {formData.previewEn && (
-            <Box
-              component="img"
-              src={formData.previewEn}
-              alt="English Media Preview"
-              sx={{
-                width: "150px",
-                height: "auto",
-                mt: 2,
-                borderRadius: 2,
-                border: "1px solid #ddd",
-              }}
-            />
-          )}
+          {(() => {
+            const previewEnSrc = formData.previewEn || formData.preview || editingItem?.media?.en?.url || null;
+            if (!previewEnSrc) return null;
+            return (
+              <Box sx={{ mt: 2 }}>
+                {formData.fileEn?.type?.startsWith("video") || editingItem?.media?.en?.type === "video" ? (
+                  <Box
+                    component="video"
+                    src={previewEnSrc}
+                    sx={{ width: "150px", height: "100px", objectFit: "contain", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                  />
+                ) : (
+                  <Box
+                    component="img"
+                    src={previewEnSrc}
+                    alt="English Media Preview"
+                    sx={{ width: "150px", height: "100px", objectFit: "contain", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                  />
+                )}
+              </Box>
+            );
+          })()}
 
           <Typography variant="subtitle2" sx={{ mt: 3 }}>
             {t.arabicUpload}
@@ -610,26 +865,31 @@ export default function CMSPage() {
             }}
             error={!!errors.fileAr}
           />
-          {formData.previewAr && (
-            <Box
-              component="img"
-              src={formData.previewAr}
-              alt="Arabic Media Preview"
-              sx={{
-                width: "150px",
-                height: "auto",
-                mt: 2,
-                borderRadius: 2,
-                border: "1px solid #ddd",
-              }}
-            />
-          )}
+          {(() => {
+            const previewArSrc = formData.previewAr || editingItem?.media?.ar?.url || null;
+            if (!previewArSrc) return null;
+            return (
+              <Box sx={{ mt: 2 }}>
+                {formData.fileAr?.type?.startsWith("video") || editingItem?.media?.ar?.type === "video" ? (
+                  <Box
+                    component="video"
+                    src={previewArSrc}
+                    sx={{ width: "150px", height: "100px", objectFit: "contain", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                  />
+                ) : (
+                  <Box
+                    component="img"
+                    src={previewArSrc}
+                    alt="Arabic Media Preview"
+                    sx={{ width: "150px", height: "100px", objectFit: "contain", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                  />
+                )}
+              </Box>
+            );
+          })()}
 
-          <Typography variant="subtitle2" sx={{ mt: 4 }}>
+          <Typography variant="subtitle2" sx={{ mt: 3 }}>
             {t.pinpointUpload}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t.pinpointUploadHelper}
           </Typography>
           <Input
             type="file"
@@ -642,15 +902,17 @@ export default function CMSPage() {
                 pinpointPreview: file ? URL.createObjectURL(file) : null,
               });
             }}
-            error={!!errors.pinpoint}
           />
           {formData.pinpointPreview && (
             <Box
               component="img"
               src={formData.pinpointPreview}
-              alt="Pinpoint Preview"
+              alt="Logo Preview"
               sx={{
                 width: "100px",
+                height: "100px",
+                objectFit: "contain",
+                backgroundColor: "#eee",
                 mt: 2,
                 borderRadius: 2,
                 border: "1px solid #ddd",
@@ -664,36 +926,54 @@ export default function CMSPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {t.pinpointPositionHelper}
           </Typography>
-          <TextField
-            label={t.pinpointX}
-            type="number"
-            fullWidth
-            sx={{ mt: 1 }}
-            value={formData.pinpointX}
-            onChange={(e) =>
-              setFormData({ ...formData, pinpointX: e.target.value })
-            }
-            inputProps={{ max: 100 }}
-            error={!!errors.pinpointX}
-            helperText={errors.pinpointX}
-          />
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              label={t.pinpointX}
+              type="number"
+              fullWidth
+              sx={{ mt: 1 }}
+              value={formData.pinpointX}
+              onChange={(e) =>
+                setFormData({ ...formData, pinpointX: e.target.value })
+              }
+              inputProps={{ max: 100 }}
+              error={!!errors.pinpointX}
+              helperText={errors.pinpointX}
+            />
 
-          <TextField
-            label={t.pinpointY}
-            type="number"
-            fullWidth
-            sx={{ mt: 2 }}
-            value={formData.pinpointY}
-            onChange={(e) =>
-              setFormData({ ...formData, pinpointY: e.target.value })
-            }
-            inputProps={{ max: 100 }}
-            error={!!errors.pinpointY}
-            helperText={errors.pinpointY}
-          />
+            <TextField
+              label={t.pinpointY}
+              type="number"
+              fullWidth
+              sx={{ mt: 1 }}
+              value={formData.pinpointY}
+              onChange={(e) =>
+                setFormData({ ...formData, pinpointY: e.target.value })
+              }
+              inputProps={{ max: 100 }}
+              error={!!errors.pinpointY}
+              helperText={errors.pinpointY}
+            />
+          </Box>
+
+          <Box sx={{ mt: 4 }}>
+            <Accordion variant="outlined" sx={{ borderRadius: 2 }}>
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Typography fontWeight="bold">{t.backgroundManager}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <MediaLayerManager
+                  layers={formData.layers}
+                  onChange={(nextLayers) =>
+                    setFormData((current) => ({ ...current, layers: nextLayers }))
+                  }
+                />
+              </AccordionDetails>
+            </Accordion>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)} disabled={actionLoading}>
+          <Button onClick={handleCloseDialog} disabled={actionLoading}>
             {t.cancel}
           </Button>
           <Button

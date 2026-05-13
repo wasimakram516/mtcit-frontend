@@ -6,8 +6,8 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import useWebSocketBigScreen from "@/hooks/useWebSocketBigScreen";
 import { FourSquare } from "react-loading-indicators";
 import { motion } from "framer-motion";
-import FooterBigScreen from "@/app/components/FooterBigScreen";
-import CloudsBackground from "../components/CloudsBackground";
+import CloudsBackground from "@/app/components/CloudsBackground";
+import DynamicBackground from "../components/DynamicBackground";
 
 export default function BigScreenPage() {
   const router = useRouter();
@@ -46,6 +46,21 @@ export default function BigScreenPage() {
     },
   };
 
+  const currentMediaLayers = [...(currentMedia?.layers || [])].sort(
+    (first, second) => (first.zIndex || 0) - (second.zIndex || 0)
+  );
+
+  const stageAspectRatio = "7 / 3";
+  const stageWidth = "min(98vw, calc(92vh * 7 / 3))";
+  const stageRadius = "clamp(20px, 2vw, 48px)";
+  const stagePadding = "clamp(12px, 1.6vw, 32px)";
+  const logoSize = "clamp(72px, 5vw, 160px)";
+  const mediaMaxWidth = "clamp(420px, 72vw, 2200px)";
+  const mediaMaxHeight = "clamp(260px, 52vh, 1400px)";
+  const coverMaxHeight = "clamp(240px, 72vh, 1500px)";
+  const titleSize = "clamp(1.75rem, 2.4vw, 4rem)";
+  const subtitleSize = "clamp(1.2rem, 1.8vw, 3rem)";
+
   useEffect(() => {
     if (isLoading) {
       setShowLoader(true);
@@ -66,21 +81,99 @@ export default function BigScreenPage() {
         width: "100vw",
         height: "100vh",
         display: "flex",
+        overflow: "hidden",
       }}
     >
-      {/* ✅ Background Component */}
+      {/* Full-Screen Base Layer (Vanta Clouds) */}
       <CloudsBackground />
 
-      {/* Main Content */}
+      {/* 90% Centered Viewport for Custom Backgrounds & Media */}
       <Box
         sx={{
-          position: "relative",
-          flex: "1 1 auto",
-          display: "flex",
-          flexDirection: "row",
-          zIndex: 10, // foreground layer
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: stageWidth,
+          aspectRatio: stageAspectRatio,
+          maxHeight: "92vh",
+          maxWidth: "98vw",
+          zIndex: 1,
+          overflow: "hidden",
+          borderRadius: stageRadius,
+          pointerEvents: "none",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+          boxSizing: "border-box",
         }}
       >
+        {/* Global Custom Background Fallback / Carbon Mode */}
+        {(carbonActive || !currentMedia || currentMediaLayers.length === 0) && (
+          <DynamicBackground language={currentLanguage} />
+        )}
+
+        {/* Media-Specific Background Layers (prioritized) */}
+        {!carbonActive && currentMedia && currentMediaLayers.length > 0 && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              zIndex: 1,
+              backgroundColor: "#fff",
+            }}
+          >
+            {currentMediaLayers.map((layer, index) => {
+              const isAr = currentLanguage === "ar";
+              const fileData = isAr ? (layer.fileAr || layer.file) : (layer.fileEn || layer.file);
+              const src = fileData?.url || (isAr ? layer.existingUrlAr : (layer.existingUrlEn || layer.existingUrl));
+              const type = fileData?.type || (isAr ? layer.typeAr : (layer.typeEn || layer.type)) || "image";
+
+              if (!src) return null;
+
+              return (
+                <Box
+                  key={`${src}-${index}`}
+                  component={type === "video" ? "video" : "img"}
+                  src={src}
+                  autoPlay={type === "video"}
+                  muted={type === "video"}
+                  loop={type === "video"}
+                  alt={`Media Layer ${index + 1}`}
+                  sx={{
+                    position: "absolute",
+                    top: `${layer.position?.y || 0}%`,
+                    left: `${layer.position?.x || 0}%`,
+                    width: `clamp(220px, ${layer.size?.width || 100}%, 2200px)`,
+                    height: `clamp(160px, ${layer.size?.height || 100}%, 1400px)`,
+                    objectFit: "cover",
+                    opacity: layer.opacity ?? 1,
+                    transform: `rotate(${layer.rotation || 0}deg)`,
+                    zIndex: layer.zIndex ?? index + 1,
+                  }}
+                />
+              );
+            })}
+          </Box>
+        )}
+        
+        {/* Main Content Area (Now inside the 90% centered boundary) */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10,
+            pointerEvents: "auto", // Allow interactions inside the viewport
+          }}
+        >
         {carbonActive && (
           <Box
             sx={{
@@ -88,11 +181,11 @@ export default function BigScreenPage() {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: "90%",
-              borderRadius: "2rem",
+              width: "100%",
+              borderRadius: stageRadius,
               backgroundColor: "rgba(255,255,255,0.9)",
               boxShadow: "0 0 30px rgba(0,0,0,0.4)",
-              padding: 4,
+              padding: stagePadding,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -107,6 +200,7 @@ export default function BigScreenPage() {
               sx={{
                 color: "#333",
                 letterSpacing: 1,
+                fontSize: titleSize,
               }}
             >
               {translations[currentLanguage]?.title || translations.en.title}
@@ -127,10 +221,10 @@ export default function BigScreenPage() {
                 src="/omanCity.png"
                 alt="City"
                 sx={{
-                  width: "100%",
+                  width: "min(100%, 1800px)",
                   height: "auto",
                   objectFit: "contain",
-                  borderRadius: "1rem",
+                  borderRadius: "clamp(12px, 1vw, 24px)",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
                 }}
               />
@@ -143,6 +237,7 @@ export default function BigScreenPage() {
               sx={{
                 color: "#333",
                 letterSpacing: 1,
+                fontSize: subtitleSize,
               }}
             >
               {translations[currentLanguage]?.subtitle ||
@@ -151,29 +246,20 @@ export default function BigScreenPage() {
           </Box>
         )}
 
-        {/* LEFT 70% */}
+        {/* Centered Content Area (90%) */}
         <Box
           sx={{
-            flex: "0 0 70%",
+            flex: "1 1 auto",
+            width: "100%",
             position: "relative",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 10,
           }}
         >
-          <IconButton
-            sx={{
-              position: "absolute",
-              top: 20,
-              left: 20,
-              color: "#fff",
-              zIndex: 9999,
-            }}
-            onClick={() => router.push("/")}
-          >
-            <ArrowBackIcon />
-          </IconButton>
+
 
           {showLoader && (
             <Box sx={{ zIndex: 2 }}>
@@ -190,106 +276,128 @@ export default function BigScreenPage() {
                 component="img"
                 src={currentLanguage === "en" ? "/CoverEn.gif" : "CoverAr.gif"}
                 alt="Display Image"
-                sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  maxHeight: coverMaxHeight,
+                }}
               />
             </Box>
           )}
 
           {!isLoading &&
             showContent &&
-            currentMedia?.media?.type === "image" && (
+            currentMedia?.media?.type === "image" &&
+            currentMedia?.media?.url && (
               <Box
-                component="img"
-                src={currentMedia.media.url}
-                alt="Display Image"
                 sx={{
-                  width: "90%",
-                  height: "auto",
-                  objectFit: "contain",
-                  borderRadius: "2rem",
-                  zIndex: 2,
+                  position: "relative",
+                  width: "fit-content",
+                  maxWidth: mediaMaxWidth,
+                  maxHeight: mediaMaxHeight,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
-              />
+              >
+                {/* Dynamic Media Logo (replaces hardcoded pinpoint) */}
+                {currentMedia.pinpoint?.file?.url && (
+                  <motion.img
+                    src={currentMedia.pinpoint.file.url}
+                    alt="Logo"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    style={{
+                      position: "absolute",
+                      top: `${currentMedia.pinpoint.position?.y || 0}%`,
+                      left: `${currentMedia.pinpoint.position?.x || 0}%`,
+                      transform: "translate(-50%, -50%)",
+                      width: logoSize,
+                      height: "auto",
+                      zIndex: 5,
+                      filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
+                    }}
+                  />
+                )}
+                
+                <Box
+                  component="img"
+                  src={currentMedia.media.url}
+                  alt="Display Image"
+                  sx={{
+                    width: "100%",
+                    maxWidth: mediaMaxWidth,
+                    height: "auto",
+                    maxHeight: mediaMaxHeight,
+                    objectFit: "contain",
+                    borderRadius: stageRadius,
+                    zIndex: 2,
+                    display: "block",
+                    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                  }}
+                />
+              </Box>
             )}
 
           {!isLoading &&
             showContent &&
-            currentMedia?.media?.type === "video" && (
+            currentMedia?.media?.type === "video" &&
+            currentMedia?.media?.url && (
               <Box
-                component="video"
-                src={currentMedia.media.url}
-                autoPlay
-                muted
-                loop
                 sx={{
-                  width: "90%",
-                  height: "auto",
-                  objectFit: "contain",
-                  borderRadius: "2rem",
-                  zIndex: 2,
+                  position: "relative",
+                  width: "fit-content",
+                  maxWidth: mediaMaxWidth,
+                  maxHeight: mediaMaxHeight,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
-              />
+              >
+                {/* Dynamic Pinpoint Logo */}
+                {currentMedia.pinpoint?.file?.url && (
+                  <motion.img
+                    src={currentMedia.pinpoint.file.url}
+                    alt="Logo"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    style={{
+                      position: "absolute",
+                      top: `${currentMedia.pinpoint.position?.y || 0}%`,
+                      left: `${currentMedia.pinpoint.position?.x || 0}%`,
+                      transform: "translate(-50%, -50%)",
+                      width: logoSize,
+                      height: "auto",
+                      zIndex: 5,
+                      filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
+                    }}
+                  />
+                )}
+
+                <Box
+                  component="video"
+                  src={currentMedia.media.url}
+                  autoPlay
+                  muted
+                  loop
+                  sx={{
+                    width: "100%",
+                    maxWidth: mediaMaxWidth,
+                    height: "auto",
+                    maxHeight: mediaMaxHeight,
+                    objectFit: "contain",
+                    borderRadius: stageRadius,
+                    zIndex: 2,
+                    display: "block",
+                    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                  }}
+                />
+              </Box>
             )}
         </Box>
 
-        {/* RIGHT 30% */}
-        <Box
-          sx={{
-            flex: "0 0 30%",
-            position: "relative",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            zIndex: 10,
-          }}
-        >
-          <Box
-            component="img"
-            src="/road.png"
-            alt="Road"
-            sx={{
-              position: "absolute",
-              bottom: 0,
-              right: -200,
-              height: "90%",
-              objectFit: "contain",
-            }}
-          />
-          {allMedia
-            .filter((m) => m.pinpoint?.file?.url)
-            .map((m) => {
-              const isActive = currentMedia?._id === m._id;
-              const pin = m.pinpoint;
-
-              return (
-                <motion.img
-                  key={m._id}
-                  src={pin.file.url}
-                  alt="Pinpoint"
-                  initial={false}
-                  animate={isActive ? { y: [0, -15, 0] } : { y: 0 }}
-                  transition={
-                    isActive
-                      ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                      : {}
-                  }
-                  style={{
-                    position: "absolute",
-                    top: `${pin.position.y}%`,
-                    left: `${pin.position.x}%`,
-                    transform: "translate(-50%, -50%)",
-                    zIndex: isActive ? 3 : 1,
-                    opacity: isActive ? 1 : 0.9,
-                    filter: isActive
-                      ? "drop-shadow(0 0 12px rgba(0, 150, 255, 0.8)) brightness(1.3) saturate(1.8) hue-rotate(90deg)"
-                      : "brightness(0.95) saturate(0.9)",
-                    transition: "filter 0.3s ease, opacity 0.3s ease",
-                  }}
-                />
-              );
-            })}
         </Box>
-
-        <FooterBigScreen />
       </Box>
     </Box>
   );

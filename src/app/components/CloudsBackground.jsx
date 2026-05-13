@@ -44,10 +44,10 @@ export default function CloudsBackground() {
       ref={vantaRef}
       sx={{
         position: "absolute",
-        top: "-15vh",
+        top: 0,
         left: 0,
         width: "100%",
-        height: "110%",
+        height: "100%",
         zIndex: -10,
       }}
     />

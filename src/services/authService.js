@@ -1,5 +1,4 @@
 import api from "./api";
-import axios from "axios";
 
 // Store only access token, refresh token stays in cookies
 export const getAccessToken = () => sessionStorage.getItem("accessToken");
@@ -20,7 +19,7 @@ export const login = async (email, password) => {
 // **Refresh Access Token Using Secure Cookie**
 export async function refreshToken() {
   try {
-    const { data } = await axios.post("/api/auth/refresh", {
+    const { data } = await api.get("/auth/refresh", {
       withCredentials: true,
     });
     setAccessToken(data.data.accessToken);

@@ -140,18 +140,7 @@ export default function Controller() {
         <Aurora />
       </Box>
 
-      <IconButton
-        sx={{
-          position: "absolute",
-          top: 20,
-          left: 20,
-          color: "#fff",
-          zIndex: 99,
-        }}
-        onClick={() => router.push("/")}
-      >
-        <ArrowBackIcon />
-      </IconButton>
+
 
       {categoriesArray.map(([category, subcategories], index) => {
         const isActiveMain =
