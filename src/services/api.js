@@ -1,6 +1,6 @@
 import axios from 'axios';
+import { refreshToken, clearTokens } from './authService';
 import { getApiBaseUrl } from "@/utils/runtimeConfig";
-import { getAccessToken, setAccessToken, clearTokens } from "./tokenManager";
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -9,21 +9,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
-const refreshAccessToken = async () => {
-  console.warn("Interceptor: Refreshing access token...");
-  const { data } = await axios.get(`${API_BASE_URL}/auth/refresh`, {
-    withCredentials: true,
-  });
-  const token = data?.data?.accessToken;
-  if (!token) {
-    throw new Error("Refresh endpoint did not return access token");
-  }
-  setAccessToken(token);
-  console.log("Interceptor: Token refreshed successfully.");
-  return token;
-};
-
 // Global variables to handle token refresh logic
+
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -42,7 +29,7 @@ const processQueue = (error, token = null) => {
 // Attach accessToken to each request
 api.interceptors.request.use(
   (config) => {
-    const accessToken = getAccessToken();
+    const accessToken = sessionStorage.getItem("accessToken"); // Only store access token in sessionStorage
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -56,15 +43,14 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    const requestUrl = originalRequest?.url || "";
 
     // Avoid looping for login & refresh endpoints
-    if (requestUrl.includes("/auth/refresh") || requestUrl.includes("/auth/login")) {
+    if (originalRequest.url.includes("/auth/refresh") || originalRequest.url.includes("/auth/login")) {
       return Promise.reject(error);
     }
 
     // If token expired (401), try refreshing
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       if (isRefreshing) {
@@ -72,7 +58,6 @@ api.interceptors.response.use(
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return api(originalRequest);
           })
@@ -82,19 +67,14 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const newAccessToken = await refreshAccessToken();
-        originalRequest.headers = originalRequest.headers || {};
+        const newAccessToken = await refreshToken(); // Calls the refresh token API
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
         processQueue(null, newAccessToken);
         return api(originalRequest);
       } catch (refreshError) {
-        console.error("❌ Interceptor: Refresh failed:", refreshError.response?.data?.message || refreshError.message);
         processQueue(refreshError, null);
         clearTokens();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login"; // Redirect to login
-        }
+        window.location.href = "/login"; // Redirect to login
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

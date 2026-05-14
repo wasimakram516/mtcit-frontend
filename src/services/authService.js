@@ -1,51 +1,47 @@
-import axios from "axios";
 import api from "./api";
-import { getApiBaseUrl } from "@/utils/runtimeConfig";
-import { getAccessToken, setAccessToken, clearTokens } from "./tokenManager";
 
-const API_BASE_URL = getApiBaseUrl();
-
-export { getAccessToken, setAccessToken, clearTokens };
+// Store only access token, refresh token stays in cookies
+export const getAccessToken = () => sessionStorage.getItem("accessToken");
+export const setAccessToken = (accessToken) =>
+  sessionStorage.setItem("accessToken", accessToken);
+export const clearTokens = () => sessionStorage.removeItem("accessToken");
 
 // **Login API Call**
 export const login = async (email, password) => {
   const { data } = await api.post("/auth/login", { email, password });
-  const token = data.data.accessToken;
-  setAccessToken(token);
-  return token;
+
+  // Set access token (refresh token is stored in secure HTTP-only cookie)
+  setAccessToken(data.data.accessToken);
+
+  return data.data.accessToken;
 };
 
-// **Refresh Access Token**
-export const refreshAccessToken = async () => {
+// **Refresh Access Token Using Secure Cookie**
+export async function refreshToken() {
   try {
-    console.warn("🔄 Manual Refresh: Attempting to refresh access token...");
-    const { data } = await axios.get(`${API_BASE_URL}/auth/refresh`, {
+    const { data } = await api.get("/auth/refresh", {
       withCredentials: true,
     });
-    
-    const newToken = data?.data?.accessToken;
-    if (!newToken) throw new Error("No token returned");
-    
-    setAccessToken(newToken);
-    console.log("✅ Manual Refresh: Token refreshed successfully.");
-    return newToken;
+    setAccessToken(data.data.accessToken);
+    return data.data.accessToken;
   } catch (error) {
-    console.error("❌ Manual Refresh failed:", error.response?.data?.message || error.message);
-    clearTokens();
-    throw error;
+    console.error("Failed to refresh token:", error);
+    throw new Error("Failed to refresh token");
   }
-};
+}
 
 // **Logout API Call**
-export const logoutUser = async () => {
+export async function logoutUser() {
   try {
-    await api.post("/auth/logout");
+    await api.post("/auth/logout"); // Backend will clear the refresh token cookie
   } catch (error) {
-    console.error("Failed to logout on server:", error);
+    console.error("Failed to logout on the server:", error);
   } finally {
     clearTokens();
-    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+
+    // ✅ Prevent multiple redirects
+    if (window.location.pathname !== "/login") {
       window.location.href = "/login";
     }
   }
-};
+}
