@@ -18,6 +18,7 @@ export default function BigScreenPage() {
     allMedia,
     carbonActive,
     carbonLevel,
+    categoryTree,
   } = useWebSocketBigScreen();
   const [showContent, setShowContent] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
@@ -44,6 +45,24 @@ export default function BigScreenPage() {
       title: "قلل من البصمة الكربونية...",
       subtitle: "وشاهد المدينة تتحول إلى الخُضرة!",
     },
+  };
+
+  // Build category display from categoryPath with proper names from categoryTree
+  // (Kept for future use but not displayed)
+  const getCategoryDisplay = () => {
+    if (currentMedia?.categoryPath && currentMedia.categoryPath.length > 0 && categoryTree) {
+      const nodeMap = {};
+      const traverse = (node) => {
+        nodeMap[node._id] = node;
+        if (node.children) node.children.forEach(traverse);
+      };
+      categoryTree.forEach(traverse);
+      const names = currentMedia.categoryPath
+        .map(id => nodeMap[id]?.name?.en || '?')
+        .filter(Boolean);
+      return names.join(' / ');
+    }
+    return "";
   };
 
   const currentMediaLayers = [...(currentMedia?.layers || [])].sort(
@@ -288,112 +307,140 @@ export default function BigScreenPage() {
 
           {!isLoading &&
             showContent &&
-            currentMedia?.media?.type === "image" &&
-            currentMedia?.media?.url && (
-              <Box
-                sx={{
-                  position: "relative",
-                  width: "fit-content",
-                  maxWidth: mediaMaxWidth,
-                  maxHeight: mediaMaxHeight,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                {/* Dynamic Media Logo (replaces hardcoded pinpoint) */}
-                {currentMedia.pinpoint?.file?.url && (
-                  <motion.img
-                    src={currentMedia.pinpoint.file.url}
-                    alt="Logo"
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    style={{
-                      position: "absolute",
-                      top: `${currentMedia.pinpoint.position?.y || 0}%`,
-                      left: `${currentMedia.pinpoint.position?.x || 0}%`,
-                      transform: "translate(-50%, -50%)",
-                      width: logoSize,
-                      height: "auto",
-                      zIndex: 5,
-                      filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
-                    }}
-                  />
-                )}
+            currentMedia?.media && (
+              (() => {
+                // Try to get media for current language, fallback to other language if needed
+                let mediaInfo = currentMedia.media[currentLanguage];
+                let usedLanguage = currentLanguage;
                 
-                <Box
-                  component="img"
-                  src={currentMedia.media.url}
-                  alt="Display Image"
-                  sx={{
-                    width: "100%",
-                    maxWidth: mediaMaxWidth,
-                    height: "auto",
-                    maxHeight: mediaMaxHeight,
-                    objectFit: "contain",
-                    borderRadius: stageRadius,
-                    zIndex: 2,
-                    display: "block",
-                    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                  }}
-                />
-              </Box>
-            )}
+                if (!mediaInfo && currentLanguage === "ar" && currentMedia.media.en) {
+                  console.log(`⚠️ Arabic media not available, using English fallback`);
+                  mediaInfo = currentMedia.media.en;
+                  usedLanguage = "en";
+                } else if (!mediaInfo && currentLanguage === "en" && currentMedia.media.ar) {
+                  console.log(`⚠️ English media not available, using Arabic fallback`);
+                  mediaInfo = currentMedia.media.ar;
+                  usedLanguage = "ar";
+                }
+                
+                if (!mediaInfo?.url) {
+                  console.log(`❌ No valid media URL found for ${currentLanguage} or fallback`);
+                  return null;
+                }
+                
+                const type = mediaInfo?.type || "image";
+                const url = mediaInfo?.url;
+                
+                console.log(`✅ Rendering ${type} with language: ${usedLanguage}, URL: ${url}`);
+                
+                if (type === "image") {
+                  return (
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "fit-content",
+                        maxWidth: mediaMaxWidth,
+                        maxHeight: mediaMaxHeight,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      {/* Dynamic Media Logo */}
+                      {currentMedia.pinpoint?.file?.url && (
+                        <motion.img
+                          src={currentMedia.pinpoint.file.url}
+                          alt="Logo"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          style={{
+                            position: "absolute",
+                            top: `${currentMedia.pinpoint.position?.y || 0}%`,
+                            left: `${currentMedia.pinpoint.position?.x || 0}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: logoSize,
+                            height: "auto",
+                            zIndex: 5,
+                            filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
+                          }}
+                        />
+                      )}
+                      
+                      <Box
+                        component="img"
+                        src={url}
+                        alt="Display Image"
+                        sx={{
+                          width: "100%",
+                          maxWidth: mediaMaxWidth,
+                          height: "auto",
+                          maxHeight: mediaMaxHeight,
+                          objectFit: "contain",
+                          borderRadius: stageRadius,
+                          zIndex: 2,
+                          display: "block",
+                          boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                        }}
+                      />
+                    </Box>
+                  );
+                } else if (type === "video") {
+                  return (
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "fit-content",
+                        maxWidth: mediaMaxWidth,
+                        maxHeight: mediaMaxHeight,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      {/* Dynamic Pinpoint Logo */}
+                      {currentMedia.pinpoint?.file?.url && (
+                        <motion.img
+                          src={currentMedia.pinpoint.file.url}
+                          alt="Logo"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          style={{
+                            position: "absolute",
+                            top: `${currentMedia.pinpoint.position?.y || 0}%`,
+                            left: `${currentMedia.pinpoint.position?.x || 0}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: logoSize,
+                            height: "auto",
+                            zIndex: 5,
+                            filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
+                          }}
+                        />
+                      )}
 
-          {!isLoading &&
-            showContent &&
-            currentMedia?.media?.type === "video" &&
-            currentMedia?.media?.url && (
-              <Box
-                sx={{
-                  position: "relative",
-                  width: "fit-content",
-                  maxWidth: mediaMaxWidth,
-                  maxHeight: mediaMaxHeight,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                {/* Dynamic Pinpoint Logo */}
-                {currentMedia.pinpoint?.file?.url && (
-                  <motion.img
-                    src={currentMedia.pinpoint.file.url}
-                    alt="Logo"
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    style={{
-                      position: "absolute",
-                      top: `${currentMedia.pinpoint.position?.y || 0}%`,
-                      left: `${currentMedia.pinpoint.position?.x || 0}%`,
-                      transform: "translate(-50%, -50%)",
-                      width: logoSize,
-                      height: "auto",
-                      zIndex: 5,
-                      filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
-                    }}
-                  />
-                )}
-
-                <Box
-                  component="video"
-                  src={currentMedia.media.url}
-                  autoPlay
-                  muted
-                  loop
-                  sx={{
-                    width: "100%",
-                    maxWidth: mediaMaxWidth,
-                    height: "auto",
-                    maxHeight: mediaMaxHeight,
-                    objectFit: "contain",
-                    borderRadius: stageRadius,
-                    zIndex: 2,
-                    display: "block",
-                    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                  }}
-                />
-              </Box>
+                      <Box
+                        component="video"
+                        src={url}
+                        autoPlay
+                        muted
+                        loop
+                        sx={{
+                          width: "100%",
+                          maxWidth: mediaMaxWidth,
+                          height: "auto",
+                          maxHeight: mediaMaxHeight,
+                          objectFit: "contain",
+                          borderRadius: stageRadius,
+                          zIndex: 2,
+                          display: "block",
+                          boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                        }}
+                      />
+                    </Box>
+                  );
+                }
+                
+                return null;
+              })()
             )}
         </Box>
 

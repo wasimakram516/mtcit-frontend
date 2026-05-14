@@ -11,6 +11,7 @@ export default function useWebSocketBigScreen() {
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [carbonActive, setCarbonActive] = useState(false);
   const [carbonLevel, setCarbonLevel] = useState(50);
+  const [categoryTree, setCategoryTree] = useState(null);
 
   const WS_HOST = getWebSocketHost();
 
@@ -45,7 +46,10 @@ export default function useWebSocketBigScreen() {
 
     // Media arrives
     socketInstance.on("displayMedia", (mediaData) => {
-      console.log("🖥️ Display media:", mediaData);
+      console.log("🖥️ Display media received:", mediaData);
+      if (mediaData) {
+        console.log(`✅ Media has en: ${!!mediaData.media?.en}, ar: ${!!mediaData.media?.ar}`);
+      }
       setCurrentMedia(mediaData);
       setIsLoading(false);
     });
@@ -59,6 +63,11 @@ export default function useWebSocketBigScreen() {
       console.log("🌍 Carbon Mode:", active, value);
       setCarbonActive(active);
       setCarbonLevel(value);
+    });
+
+    socketInstance.on("categoryTree", (tree) => {
+      console.log("📂 Received category tree (big-screen):", tree);
+      setCategoryTree(tree);
     });
 
     socketInstance.on("disconnect", () => {
@@ -77,5 +86,6 @@ export default function useWebSocketBigScreen() {
     allMedia,
     carbonActive,
     carbonLevel,
+    categoryTree,
   };
 }

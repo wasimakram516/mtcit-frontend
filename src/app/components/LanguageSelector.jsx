@@ -14,7 +14,7 @@ const LanguageSelector = () => {
   };
 
   return (
-    <Box sx={{ position: "absolute", top:10, right:20, width: "80px", height: "40px" }}>
+    <Box sx={{ position: "absolute", top:10, right:20, width: "80px", height: "40px", zIndex: 1000 }}>
       {/* Inactive Button (Behind) */}
       <motion.div
         initial={{ opacity: 0.5, y: 10, x: 10 }}

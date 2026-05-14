@@ -35,6 +35,8 @@ import { useLanguage } from "../context/LanguageContext";
 import LanguageSelector from "../components/LanguageSelector";
 import CMSBackgroundManager from "../components/CMSBackgroundManager";
 import { Tabs, Tab } from "@mui/material";
+import useWebSocketController from "@/hooks/useWebSocketController";
+import CategoryManager from "./CategoryManager";
 
 export default function CMSPage() {
   const router = useRouter();
@@ -47,6 +49,7 @@ export default function CMSPage() {
   const [formData, setFormData] = useState({
     category: "",
     subcategory: "",
+    categoryPath: [],
     fileEn: null,
     fileAr: null,
     pinpointFile: null,
@@ -169,6 +172,8 @@ export default function CMSPage() {
 
   const t = translations[language];
 
+  const { connected, sendCategorySelection, sendCarbonMode, categoryOptions, categoryTree } = useWebSocketController();
+
   const createEmptyLayer = (layer = {}) => ({
     fileEn: layer.fileEn || layer.file || null,
     fileAr: layer.fileAr || null,
@@ -220,7 +225,10 @@ export default function CMSPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.category) newErrors.category = "Category is required.";
+    // require either legacy category string or the new categoryPath selection
+    if ((!formData.category || formData.category === "") && (!formData.categoryPath || formData.categoryPath.length === 0)) {
+      newErrors.category = "Category is required.";
+    }
 
     if (!editingItem && !formData.fileEn) {
       newErrors.fileEn = "Please upload the English media file.";
@@ -356,6 +364,7 @@ export default function CMSPage() {
     setFormData({
       category: "",
       subcategory: "",
+      categoryPath: [],
       fileEn: null,
       fileAr: null,
       pinpointFile: null,
@@ -376,6 +385,9 @@ export default function CMSPage() {
       const payload = new FormData();
       payload.append("category", formData.category);
       payload.append("subcategory", formData.subcategory || "");
+      if (formData.categoryPath && formData.categoryPath.length) {
+        payload.append("categoryPath", JSON.stringify(formData.categoryPath));
+      }
       if (formData.fileEn) payload.append("mediaEn", formData.fileEn);
       if (formData.fileAr) payload.append("mediaAr", formData.fileAr);
       if (formData.pinpointFile)
@@ -433,7 +445,10 @@ export default function CMSPage() {
 
       fetchMedia();
     } catch (err) {
-      showMessage(err?.response?.data?.message || "Failed", "error");
+      console.error("❌ Save error:", err);
+      console.error("Response:", err?.response?.data);
+      const errorMsg = err?.response?.data?.message || err?.message || "Failed to save";
+      showMessage(errorMsg, "error");
     } finally {
       setActionLoading(false);
     }
@@ -467,6 +482,7 @@ export default function CMSPage() {
     setFormData({
       category: item?.category || "",
       subcategory: item?.subcategory || "",
+      categoryPath: item?.categoryPath || [],
       fileEn: null,
       fileAr: null,
       pinpointFile: null,
@@ -501,6 +517,70 @@ export default function CMSPage() {
     setOpenDialog(true);
   };
 
+  // Render N-level chained selects when categoryTree is available
+  const renderCategoryChain = () => {
+    if (!categoryTree || !Array.isArray(categoryTree)) return null;
+
+    const selectedPath = formData.categoryPath || [];
+    if (!Array.isArray(selectedPath)) return null;
+
+    const getOptionsForLevel = (level) => {
+      if (level === 0) return categoryTree;
+      let node = null;
+      for (let i = 0; i < level; i++) {
+        const id = selectedPath[i];
+        if (!id) return [];
+        const searchIn = node ? node.children : categoryTree;
+        node = searchIn.find((n) => String(n._id) === String(id));
+        if (!node) return [];
+      }
+      return node.children || [];
+    };
+
+    const levels = [];
+    const computeMaxDepth = (nodes) => {
+      let max = 0;
+      const dfs = (n, depth) => {
+        max = Math.max(max, depth);
+        (n.children || []).forEach((c) => dfs(c, depth + 1));
+      };
+      nodes.forEach((node) => dfs(node, 1));
+      return max;
+    };
+
+    const maxDepth = computeMaxDepth(categoryTree);
+    for (let i = 0; i < maxDepth; i++) {
+      const opts = getOptionsForLevel(i);
+      if (!opts || opts.length === 0) break;
+
+      levels.push(
+        <TextField
+          key={`cat-level-${i}`}
+          select
+          label={`Level ${i + 1}`}
+          value={(selectedPath && selectedPath[i]) || ""}
+          onChange={(e) => {
+            const newId = e.target.value;
+            setFormData((cur) => ({
+              ...cur,
+              categoryPath: [...cur.categoryPath.slice(0, i), newId],
+            }));
+          }}
+          fullWidth
+          margin="normal"
+        >
+          {opts.map((o) => (
+            <MenuItem key={o._id} value={o._id}>
+              {o.name?.en || o.name?.ar || o._id}
+            </MenuItem>
+          ))}
+        </TextField>
+      );
+    }
+
+    return <Box sx={{ mt: 1 }}>{levels}</Box>;
+  };
+
   return (
     <Box sx={{ p: 4, position: "relative" }}>
       <LanguageSelector />
@@ -518,12 +598,13 @@ export default function CMSPage() {
       <Box sx={{ mt: 3, mb: 2, borderBottom: 1, borderColor: "divider" }}>
         <Tabs value={activeTab} onChange={handleTabChange} centered>
           <Tab label={t.mediaManager} />
+          <Tab label="Category Manager" />
           <Tab label={t.backgroundManager} />
         </Tabs>
       </Box>
 
       {activeTab === 0 && (
-        <Box sx={{ mt: 3, maxWidth: "800px", mx: "auto" }}>
+        <Box sx={{ mt: 3, maxWidth: "900px", mx: "auto" }}>
           <Box
             sx={{
               display: "flex",
@@ -545,26 +626,44 @@ export default function CMSPage() {
           </Box>
 
           <Box>
-            {mediaList.map((item) => (
-          <Box
-            key={item._id}
-            sx={{
-              mb: 3,
-              p: 2,
-              borderRadius: 2,
-              border: "1px solid #ddd",
-              backgroundColor: "#fafafa",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "stretch",
-            }}
-          >
+            {mediaList.map((item) => {
+              // Helper to build category display name from categoryPath + categoryTree
+              const buildCategoryDisplay = () => {
+                if (item.categoryPath && item.categoryPath.length > 0 && categoryTree) {
+                  // Build a map of node IDs to their names from categoryTree
+                  const nodeMap = {};
+                  const traverse = (node) => {
+                    nodeMap[node._id] = node;
+                    if (node.children) node.children.forEach(traverse);
+                  };
+                  categoryTree.forEach(traverse);
+                  
+                  // Build the display path
+                  const names = item.categoryPath
+                    .map(id => nodeMap[id]?.name?.en || '?')
+                    .filter(Boolean);
+                  return names.join(' / ');
+                }
+                return item.category + (item.subcategory ? ' / ' + item.subcategory : '');
+              };
+              
+              return (
+              <Box
+                key={item._id}
+                sx={{
+                  mb: 3,
+                  p: 2,
+                  borderRadius: 2,
+                  border: "1px solid #ddd",
+                  backgroundColor: "#fafafa",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                }}
+              >
             {/* Top Section: Category Info */}
             <Typography fontWeight="bold" variant="subtitle1">
-              {item.category}
-            </Typography>
-            <Typography color="text.secondary">
-              {item.subcategory || "—"}
+              {buildCategoryDisplay()}
             </Typography>
 
             {/* Media Section */}
@@ -655,6 +754,47 @@ export default function CMSPage() {
               </Box>
             </Box>
 
+            {/* Layers Section */}
+            {item.layers && item.layers.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                  Layers ({item.layers.length})
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
+                  {item.layers.map((layer, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        p: 1,
+                        border: "1px solid #ccc",
+                        borderRadius: 1,
+                        backgroundColor: "#fff",
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      {(layer.fileEn?.url || layer.file?.url) ? (
+                        <Box
+                          component="img"
+                          src={layer.fileEn?.url || layer.file?.url}
+                          alt={`Layer ${idx + 1}`}
+                          sx={{ width: "40px", height: "40px", borderRadius: 1, objectFit: "cover" }}
+                        />
+                      ) : (
+                        <Box sx={{ width: "40px", height: "40px", backgroundColor: "#eee", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>📦</Box>
+                      )}
+                      <Box>
+                        <Typography variant="caption" fontWeight="bold">{layer.title || `Layer ${idx + 1}`}</Typography>
+                        <Typography variant="caption" display="block" color="text.secondary">Z: {layer.zIndex ?? 0}</Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
             {/* Pinpoint Section */}
             {item.pinpoint?.file?.url && (
               <Box
@@ -719,13 +859,20 @@ export default function CMSPage() {
               </Button>
             </Box>
           </Box>
-        ))}
-      </Box>
-      </Box>
+              );
+            })}
+          </Box>
+        </Box>
       )}
 
       {activeTab === 1 && (
-        <Box sx={{ mt: 3, maxWidth: "800px", mx: "auto" }}>
+        <Box sx={{ mt: 3, maxWidth: "1000px", mx: "auto" }}>
+          <CategoryManager onChange={fetchMedia} />
+        </Box>
+      )}
+
+      {activeTab === 2 && (
+        <Box sx={{ mt: 3, maxWidth: "900px", mx: "auto" }}>
           <CMSBackgroundManager />
         </Box>
       )}
@@ -762,53 +909,59 @@ export default function CMSPage() {
           <Typography variant="subtitle2" sx={{ mt: 2 }}>
             {t.generalInfo}
           </Typography>
-          <Autocomplete
-            freeSolo
-            options={Object.keys(dynamicOptions)}
-            value={formData.category}
-            onChange={(e, newValue) => {
-              setFormData({
-                ...formData,
-                category: newValue || "",
-                subcategory: "",
-              });
-            }}
-            onInputChange={(e, newInputValue) => {
-              setFormData({ ...formData, category: newInputValue || "" });
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={t.category}
-                fullWidth
-                sx={{ mt: 1 }}
-                error={!!errors.category}
-                helperText={errors.category || t.categoryHelper}
+          {categoryTree ? (
+            renderCategoryChain()
+          ) : (
+            <>
+              <Autocomplete
+                freeSolo
+                options={Object.keys(dynamicOptions)}
+                value={formData.category}
+                onChange={(e, newValue) => {
+                  setFormData({
+                    ...formData,
+                    category: newValue || "",
+                    subcategory: "",
+                  });
+                }}
+                onInputChange={(e, newInputValue) => {
+                  setFormData({ ...formData, category: newInputValue || "" });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={t.category}
+                    fullWidth
+                    sx={{ mt: 1 }}
+                    error={!!errors.category}
+                    helperText={errors.category || t.categoryHelper}
+                  />
+                )}
               />
-            )}
-          />
 
-          <Autocomplete
-            freeSolo
-            options={dynamicOptions[formData.category] || []}
-            value={formData.subcategory}
-            onChange={(e, newValue) =>
-              setFormData({ ...formData, subcategory: newValue || "" })
-            }
-            onInputChange={(e, newInputValue) => {
-              setFormData({ ...formData, subcategory: newInputValue || "" });
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={t.subcategory}
-                fullWidth
-                sx={{ mt: 2 }}
-                error={!!errors.subcategory}
-                helperText={errors.subcategory || t.subcategoryHelper}
+              <Autocomplete
+                freeSolo
+                options={dynamicOptions[formData.category] || []}
+                value={formData.subcategory}
+                onChange={(e, newValue) =>
+                  setFormData({ ...formData, subcategory: newValue || "" })
+                }
+                onInputChange={(e, newInputValue) => {
+                  setFormData({ ...formData, subcategory: newInputValue || "" });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={t.subcategory}
+                    fullWidth
+                    sx={{ mt: 2 }}
+                    error={!!errors.subcategory}
+                    helperText={errors.subcategory || t.subcategoryHelper}
+                  />
+                )}
               />
-            )}
-          />
+            </>
+          )}
 
           <Typography variant="subtitle2" sx={{ mt: 3 }}>
             {t.englishUpload}

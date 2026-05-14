@@ -6,6 +6,7 @@ import { getWebSocketHost } from "@/utils/runtimeConfig";
 export default function useWebSocketController() {
   const [socket, setSocket] = useState(null);
   const [categoryOptions, setCategoryOptions] = useState({});
+  const [categoryTree, setCategoryTree] = useState(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -30,16 +31,25 @@ export default function useWebSocketController() {
       setCategoryOptions(data);
     });
 
+    socketInstance.on("categoryTree", (tree) => {
+      console.log("📂 Received category tree", tree);
+      setCategoryTree(tree);
+    });
+
     setSocket(socketInstance);
 
     return () => socketInstance.disconnect();
   }, []);
 
-  const sendCategorySelection = (category, subcategory, language) => {
+  const sendCategorySelection = (category, subcategory, language, categoryPath) => {
     if (socket) {
-      socket.emit("selectCategory", { category, subcategory, language });
+      if (Array.isArray(categoryPath)) {
+        socket.emit("selectCategory", { categoryPath, language });
+      } else {
+        socket.emit("selectCategory", { category, subcategory, language });
+      }
     }
-  };  
+  };
 
   const sendLanguageChange = (language) => {
     if (socket) {
@@ -55,5 +65,5 @@ export default function useWebSocketController() {
   
   
 
-  return { connected, sendCategorySelection, sendLanguageChange, categoryOptions, sendCarbonMode };
+  return { connected, sendCategorySelection, sendLanguageChange, categoryOptions, categoryTree, sendCarbonMode };
 }
