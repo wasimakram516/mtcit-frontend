@@ -43,20 +43,6 @@ export default function Home() {
       {/* Language Selector */}
       <LanguageSelector />
 
-      {/* Login Button */}
-      <IconButton
-        sx={{
-          position: "absolute",
-          top: 60,
-          right: 20,
-          color: "#fff",
-          zIndex: 2,
-        }}
-        onClick={() => router.push("/login")}
-      >
-        <LoginIcon />
-      </IconButton>
-
       {/* Main Content */}
       <Box
         sx={{
