@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { getWebSocketHost } from "@/utils/runtimeConfig";
 
 export default function useWebSocketBigScreen() {
   const [socket, setSocket] = useState(null);
@@ -11,7 +12,7 @@ export default function useWebSocketBigScreen() {
   const [carbonActive, setCarbonActive] = useState(false);
   const [carbonLevel, setCarbonLevel] = useState(50);
 
-  const WS_HOST = process.env.NEXT_PUBLIC_WEBSOCKET_HOST;
+  const WS_HOST = getWebSocketHost();
 
   useEffect(() => {
     if (!WS_HOST) {

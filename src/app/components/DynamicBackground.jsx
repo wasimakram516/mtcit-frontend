@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Box } from "@mui/material";
 import { io } from "socket.io-client";
+import { getApiBaseUrl, getWebSocketHost } from "@/utils/runtimeConfig";
 
 export default function DynamicBackground({ language = "en" }) {
   const [backgrounds, setBackgrounds] = useState([]);
@@ -10,8 +11,8 @@ export default function DynamicBackground({ language = "en" }) {
   const backgroundWidth = "2200px";
   const backgroundHeight = "1400px";
 
-  const WS_HOST = process.env.NEXT_PUBLIC_WEBSOCKET_HOST;
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+  const WS_HOST = getWebSocketHost();
+  const API_URL = getApiBaseUrl();
 
   useEffect(() => {
     // Fetch initial backgrounds

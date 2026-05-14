@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { getWebSocketHost } from "@/utils/runtimeConfig";
 
 export default function useWebSocketController() {
   const [socket, setSocket] = useState(null);
@@ -8,7 +9,7 @@ export default function useWebSocketController() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io(process.env.NEXT_PUBLIC_WEBSOCKET_HOST, {
+    const socketInstance = io(getWebSocketHost(), {
       transports: ["websocket"],
     });
 

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { refreshToken, clearTokens } from './authService';
+import { getApiBaseUrl } from "@/utils/runtimeConfig";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
