@@ -6,10 +6,12 @@ import ScreenShareIcon from "@mui/icons-material/ScreenShare";
 import TvIcon from "@mui/icons-material/Tv";
 import LanguageSelector from "@/app/components/LanguageSelector";
 import { useLanguage } from "@/app/context/LanguageContext";
+import { useTheme } from "@mui/material/styles";
 
 export default function Home() {
   const router = useRouter();
   const { language } = useLanguage();
+  const theme = useTheme();
 
   const translations = {
     en: {
@@ -32,7 +34,7 @@ export default function Home() {
         position: "relative",
         width: "100vw",
         height: "100vh",
-        background: "linear-gradient(to bottom, #004e7c, #9ddced)",
+        background: theme.custom.gradients.hero,
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
@@ -48,21 +50,36 @@ export default function Home() {
         sx={{
           position: "relative",
           zIndex: 2,
-          background: "rgba(255, 255, 255, 0.2)",
-          borderRadius: 4,
+          background: "rgba(248, 252, 246, 0.16)",
+          borderRadius: 3,
           padding: { xs: 3, sm: 5 },
-          maxWidth: 500,
+          maxWidth: 560,
           width: "90%",
           textAlign: "center",
-          boxShadow: "0 0 30px rgba(0, 0, 0, 0.4)",
-          backdropFilter: "blur(6px)",
+          boxShadow: "0 30px 70px rgba(7, 40, 11, 0.25)",
+          backdropFilter: "blur(14px)",
+          border: "1px solid rgba(248, 252, 246, 0.2)",
         }}
       >
-        <Typography variant="h2" color="#fff" fontWeight="bold" gutterBottom>
+        <Typography
+          variant="h2"
+          color="#F8FCF6"
+          fontWeight="bold"
+          gutterBottom
+          dir={language === "ar" ? "rtl" : "ltr"}
+          sx={{
+            fontFamily: language === "ar" ? '"SF Mada", "Mada", sans-serif' : '"Aloevera", Georgia, serif',
+            textShadow: "0 10px 30px rgba(7, 40, 11, 0.35)",
+          }}
+        >
           {translations[language].title}
         </Typography>
 
-        <Typography variant="h6" sx={{ color: "whitesmoke", mb: 3 }}>
+        <Typography
+          variant="h6"
+          dir={language === "ar" ? "rtl" : "ltr"}
+          sx={{ color: "rgba(248, 252, 246, 0.88)", mb: 4 }}
+        >
           {translations[language].subtitle}
         </Typography>
 
@@ -84,6 +101,7 @@ export default function Home() {
               "&:hover": {
                 backgroundColor: "primary.dark",
               },
+              boxShadow: "0 14px 28px rgba(7, 40, 11, 0.28)",
             }}
           >
             {translations[language].controller}
@@ -96,10 +114,11 @@ export default function Home() {
             onClick={() => router.push("/big-screen")}
             sx={{
               backgroundColor: "secondary.main",
-              color: "#fff",
+              color: "#F8FCF6",
               "&:hover": {
                 backgroundColor: "secondary.dark",
               },
+              boxShadow: "0 14px 28px rgba(57, 0, 66, 0.28)",
             }}
           >
             {translations[language].bigScreen}

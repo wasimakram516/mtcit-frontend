@@ -1,13 +1,20 @@
-/* Import Comfortaa from Google Fonts */
-@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Mada:wght@400;500;600;700;800&display=swap");
 
-/* Apply Comfortaa as the default font */
 :root {
-  --font-primary: "Comfortaa", sans-serif;
+  --font-english: "Aloevera", Georgia, "Times New Roman", serif;
+  --font-arabic: "SF Mada", "Mada", Tahoma, sans-serif;
+  --font-primary: var(--font-english);
+  --color-deep-green: #07280b;
+  --color-green: #1c932d;
+  --color-neon-plum: #390042;
+  --color-surface: #f8fcf6;
+  --color-surface-soft: rgba(248, 252, 246, 0.82);
+  --color-text-soft: #29432b;
+  --app-gradient: linear-gradient(135deg, #07280b 0%, #1c932d 52%, #390042 100%);
 }
 
-/* Ensure full height without extra scrolling */
-html, body {
+html,
+body {
   font-family: var(--font-primary);
   margin: 0;
   padding: 0;
@@ -17,9 +24,36 @@ html, body {
   display: flex;
   flex-direction: column;
   user-select: none;
+  background: var(--color-surface);
+  color: var(--color-deep-green);
 }
 
-/* Ensure Next.js Root Container also takes full height */
+html[lang="ar"],
+body[data-language="ar"] {
+  --font-primary: var(--font-arabic);
+}
+
+html[lang="en"],
+body[data-language="en"] {
+  --font-primary: var(--font-english);
+}
+
+body *,
+body *::before,
+body *::after {
+  box-sizing: border-box;
+}
+
+html[dir="rtl"] .MuiButton-startIcon {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+html[dir="rtl"] .MuiButton-endIcon {
+  margin-right: 0;
+  margin-left: 8px;
+}
+
 #__next {
   height: 100%;
   width: 100%;

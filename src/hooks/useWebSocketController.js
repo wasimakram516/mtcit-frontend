@@ -10,7 +10,13 @@ export default function useWebSocketController() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io(getWebSocketHost(), {
+    const websocketHost = getWebSocketHost();
+    if (!websocketHost) {
+      console.warn("WebSocket host is not configured for controller.");
+      return undefined;
+    }
+
+    const socketInstance = io(websocketHost, {
       transports: ["websocket"],
     });
 

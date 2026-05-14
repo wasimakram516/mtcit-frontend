@@ -57,7 +57,7 @@ export default function DynamicBackground({ language = "en" }) {
         height: "100%",
         zIndex: -5,
         overflow: "hidden",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#F8FCF6",
       }}
     >
       {/* Background images stacked by layer */}
@@ -100,7 +100,7 @@ export default function DynamicBackground({ language = "en" }) {
             left: 0,
             width: "100%",
             height: "100%",
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            background: "linear-gradient(135deg, #07280B 0%, #1C932D 52%, #390042 100%)",
           }}
         />
       )}

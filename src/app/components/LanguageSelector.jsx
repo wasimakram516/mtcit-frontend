@@ -14,7 +14,7 @@ const LanguageSelector = () => {
   };
 
   return (
-    <Box sx={{ position: "absolute", top:10, right:20, width: "80px", height: "40px", zIndex: 1000 }}>
+    <Box sx={{ position: "absolute", top: 16, right: 20, width: "96px", height: "44px", zIndex: 1000 }}>
       {/* Inactive Button (Behind) */}
       <motion.div
         initial={{ opacity: 0.5, y: 10, x: 10 }}
@@ -31,13 +31,15 @@ const LanguageSelector = () => {
           variant="contained"
           sx={{
             width: "100%",
-            backgroundColor: "#6CA8D9", // Lighter blue
-            color: "white",
-            borderRadius: "16px",
+            backgroundColor: "rgba(248, 252, 246, 0.55)",
+            color: "#07280B",
+            borderRadius: "999px",
             fontSize: "12px",
             fontWeight: "bold",
             textTransform: "none",
             px: 2,
+            border: "1px solid rgba(7, 40, 11, 0.12)",
+            boxShadow: "none",
           }}
         >
           {language === "en" ? "العربية" : "English"}
@@ -62,13 +64,14 @@ const LanguageSelector = () => {
           onClick={handleClick} 
           sx={{
             width: "100%",
-            backgroundColor: "#0077B6",
-            color: "white",
-            borderRadius: "16px",
+            background: "linear-gradient(135deg, #1C932D 0%, #390042 100%)",
+            color: "#F8FCF6",
+            borderRadius: "999px",
             fontSize: "12px",
             fontWeight: "bold",
             textTransform: "none",
             px: 2,
+            boxShadow: "0 12px 24px rgba(57, 0, 66, 0.22)",
           }}
         >
           {language === "en" ? "English" : "العربية"}

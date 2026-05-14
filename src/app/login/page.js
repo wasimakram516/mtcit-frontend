@@ -18,16 +18,22 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { login } from "@/services/authService";
 import LanguageSelector from "@/app/components/LanguageSelector";
 import { useLanguage } from "../context/LanguageContext";
+import { useTheme } from "@mui/material/styles";
 
 export default function LoginPage() {
   const router = useRouter();
   const { language } = useLanguage();
+  const theme = useTheme();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const formFontFamily =
+    language === "ar"
+      ? '"SF Mada", "Mada", Tahoma, sans-serif'
+      : '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
 
   const translations = {
     en: {
@@ -67,7 +73,7 @@ export default function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(to bottom, #004e7c, #9ddced)",
+        background: theme.custom.gradients.hero,
         height: "100vh",
         width: "100vw",
         position: "relative",
@@ -76,7 +82,7 @@ export default function LoginPage() {
       <LanguageSelector />
 
       <IconButton
-        sx={{ position: "absolute", top: 20, left: 20, color: "white" }}
+        sx={{ position: "absolute", top: 20, left: 20, color: "#F8FCF6" }}
         onClick={() => router.push("/")}
       >
         <ArrowBackIcon />
@@ -88,18 +94,23 @@ export default function LoginPage() {
           p: 4,
           width: "100%",
           maxWidth: 360,
-          backdropFilter: "blur(10px)",
-          background: "rgba(255, 255, 255, 0.2)",
-          borderRadius: 4,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          backdropFilter: "blur(14px)",
+          background: "rgba(248, 252, 246, 0.18)",
+          borderRadius: 3,
+          border: "1px solid rgba(248, 252, 246, 0.2)",
+          boxShadow: "0 24px 60px rgba(7, 40, 11, 0.26)",
         }}
       >
         <Typography
           variant="h5"
           fontWeight="600"
-          color="white"
+          color="#F8FCF6"
           align="center"
           gutterBottom
+          dir={language === "ar" ? "rtl" : "ltr"}
+          sx={{
+            fontFamily: language === "ar" ? '"SF Mada", "Mada", sans-serif' : '"Aloevera", Georgia, serif',
+          }}
         >
           {translations[language].adminLogin}
         </Typography>
@@ -108,22 +119,37 @@ export default function LoginPage() {
           <TextField
             label={translations[language].email}
             type="email"
+            name="email"
+            autoComplete="username"
             fullWidth
             margin="normal"
             variant="outlined"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            InputLabelProps={{ shrink: true }}
+            sx={{
+              "& .MuiInputLabel-root": {
+                fontFamily: formFontFamily,
+                transform: "translate(14px, -9px) scale(0.75)",
+              },
+              "& .MuiInputBase-input": {
+                fontFamily: formFontFamily,
+              },
+            }}
           />
           <TextField
             label={translations[language].password}
             type={showPassword ? "text" : "password"}
+            name="password"
+            autoComplete="current-password"
             fullWidth
             margin="normal"
             variant="outlined"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            InputLabelProps={{ shrink: true }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
@@ -135,6 +161,15 @@ export default function LoginPage() {
                   </IconButton>
                 </InputAdornment>
               ),
+            }}
+            sx={{
+              "& .MuiInputLabel-root": {
+                fontFamily: formFontFamily,
+                transform: "translate(14px, -9px) scale(0.75)",
+              },
+              "& .MuiInputBase-input": {
+                fontFamily: formFontFamily,
+              },
             }}
           />
 

@@ -1,13 +1,14 @@
 const DEFAULT_API_URL = "http://localhost:4000/api";
 
 export const getApiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL;
+  process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
 
 export const getWebSocketHost = () => {
   const explicitHost = process.env.NEXT_PUBLIC_WEBSOCKET_HOST;
   if (explicitHost) return explicitHost;
 
   const apiUrl = getApiBaseUrl();
+  if (!apiUrl) return "";
 
   try {
     const parsedUrl = new URL(apiUrl);

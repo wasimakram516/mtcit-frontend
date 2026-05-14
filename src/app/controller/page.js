@@ -1,11 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Box, IconButton, Typography, Button } from "@mui/material";
+import { Box, Typography, Button } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { motion } from "framer-motion";
-import useWebSocketController from "@/hooks/useWebSocketController";
 import { Aurora } from "ambient-cbg";
+import { useTheme } from "@mui/material/styles";
+import useWebSocketController from "@/hooks/useWebSocketController";
 import LanguageSelector from "@/app/components/LanguageSelector";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -14,12 +15,23 @@ export default function Controller() {
   const { sendCategorySelection, categoryOptions, categoryTree, sendCarbonMode, connected } =
     useWebSocketController();
   const { language } = useLanguage();
+  const theme = useTheme();
 
   const [openCategory, setOpenCategory] = useState(null);
   const [selected, setSelected] = useState({ category: "", subcategory: "" });
   const [selectedPath, setSelectedPath] = useState([]);
   const [openCategoryNode, setOpenCategoryNode] = useState(null);
-  const [selectedLeafId, setSelectedLeafId] = useState(null); // Track selected leaf to keep it highlighted
+  const [selectedLeafId, setSelectedLeafId] = useState(null);
+
+  const isArabic = language === "ar";
+
+  const getNodeLabel = (node) => {
+    if (!node) return "";
+    return isArabic ? node.name?.ar || node.name?.en || node._id : node.name?.en || node.name?.ar || node._id;
+  };
+
+  const getMotionFontFamily = () =>
+    isArabic ? '"SF Mada", "Mada", sans-serif' : '"Aloevera", Georgia, serif';
 
   const findPathToNode = (tree, targetId, path = []) => {
     for (const node of tree) {
@@ -48,10 +60,8 @@ export default function Controller() {
     if (connected) {
       sendCarbonMode(false, 0);
     }
-  }, [connected]);
-  
+  }, [connected, sendCarbonMode]);
 
-  // Auto-clear selection after 90 seconds
   useEffect(() => {
     if (!selected.category && !selected.subcategory) return;
     const timer = setTimeout(() => {
@@ -62,7 +72,6 @@ export default function Controller() {
     return () => clearTimeout(timer);
   }, [selected, sendCategorySelection, language]);
 
-  // 💥 When language changes, re-trigger backend with current selection
   useEffect(() => {
     if (selectedPath.length) {
       sendCategorySelection(null, null, language, selectedPath);
@@ -72,16 +81,16 @@ export default function Controller() {
   }, [language, selected.category, selected.subcategory, selectedPath, sendCategorySelection]);
 
   const bubbleBase = {
-    backgroundImage: "linear-gradient(to top, #a3bded 0%, #6991c7 100%)",
-    boxShadow: `rgba(45, 35, 66, 0.4) 0px 2px 4px,
-                rgba(45, 35, 66, 0.3) 0px 7px 13px -3px,
-                rgba(58, 65, 111, 0.5) 0px -3px 0px inset`,
-    color: "#fff",
+    backgroundImage: "linear-gradient(145deg, #07280B 0%, #1C932D 58%, #390042 100%)",
+    boxShadow: `rgba(7, 40, 11, 0.35) 0px 8px 22px,
+                rgba(57, 0, 66, 0.25) 0px 16px 42px -10px,
+                rgba(248, 252, 246, 0.18) 0px -4px 0px inset`,
+    color: "#F8FCF6",
     width: "15rem",
     height: "15rem",
     borderRadius: "50%",
     display: "flex",
-    fontFamily: '"JetBrains Mono", monospace',
+    fontFamily: getMotionFontFamily(),
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
@@ -94,37 +103,30 @@ export default function Controller() {
     textTransform: "none",
     flexShrink: 0,
     transition: "box-shadow 0.2s, transform 0.2s",
-    "&:hover": {
-      boxShadow: `rgba(45, 35, 66, 0.4) 0px 4px 8px,
-                  rgba(45, 35, 66, 0.3) 0px 7px 13px -3px,
-                  #3c4fe0 0px -3px 0px inset`,
-      transform: "translateY(-2px)",
-    },
+    border: "1px solid rgba(248, 252, 246, 0.15)",
   };
 
   const translations = {
     en: {
       instruction: "Tap a category to explore its contents",
       back: "Back",
+      carbonFootprint: "Carbon Footprint",
     },
     ar: {
       instruction: "اضغط على الفئة لاستكشاف محتوياتها",
       back: "رجوع",
+      carbonFootprint: "البصمة الكربونية",
     },
   };
 
   const handleCategoryClick = (category, subcategories, nodeId = null) => {
-    // If using categoryTree, nodeId will be populated
     if (categoryTree && nodeId) {
       const node = findNodeById(categoryTree, nodeId);
       if (!node) return;
       if (node.children && node.children.length) {
-        // This is a parent node - open it to show children
         setOpenCategoryNode(nodeId);
-        // Reset selected path but keep track of navigation path
         setSelectedPath([]);
       } else {
-        // This is a leaf node - select it
         const path = findPathToNode(categoryTree, nodeId) || [];
         setSelectedPath(path);
         setSelected({ category: node.name?.en || "", subcategory: "" });
@@ -134,7 +136,6 @@ export default function Controller() {
       return;
     }
 
-    // Legacy behavior
     if (openCategory === category) {
       setOpenCategory(null);
       setSelected({ category: "", subcategory: "" });
@@ -159,25 +160,20 @@ export default function Controller() {
       const node = findNodeById(categoryTree, nodeId);
       if (!node) return;
       if (node.children && node.children.length) {
-        // drill down into this node
         setOpenCategoryNode(nodeId);
-        setSelectedLeafId(null); // Clear leaf selection when drilling down
+        setSelectedLeafId(null);
         return;
       }
-      // This is a leaf node - select it and keep drill-down open
+
       const path = findPathToNode(categoryTree, nodeId) || [];
       setSelectedPath(path);
-      setSelectedLeafId(nodeId); // Mark this leaf as selected
+      setSelectedLeafId(nodeId);
       setSelected({ category: node?.name?.en || category, subcategory: "" });
       sendCategorySelection(null, null, language, path);
-      // DON'T close the drill-down - keep it open so user can see their selection
       return;
     }
 
-    if (
-      selected.category === category &&
-      selected.subcategory === subcategory
-    ) {
+    if (selected.category === category && selected.subcategory === subcategory) {
       setSelected({ category: "", subcategory: "" });
       sendCategorySelection("", "", language);
       setOpenCategory(null);
@@ -187,13 +183,21 @@ export default function Controller() {
     }
   };
 
-  const displayCategories = categoryTree && Array.isArray(categoryTree)
-    ? categoryTree.map((n) => ({
-        id: n._id,
-        label: n.name?.en || n._id,
-        children: (n.children || []).map((c) => ({ id: c._id, label: c.name?.en || c._id })),
-      }))
-    : Object.entries(categoryOptions).map(([k, v]) => ({ id: k, label: k, children: (v || []).map((s) => ({ id: null, label: s })) }));
+  const displayCategories =
+    categoryTree && Array.isArray(categoryTree)
+      ? categoryTree.map((node) => ({
+          id: node._id,
+          label: getNodeLabel(node),
+          children: (node.children || []).map((child) => ({
+            id: child._id,
+            label: getNodeLabel(child),
+          })),
+        }))
+      : Object.entries(categoryOptions).map(([key, value]) => ({
+          id: key,
+          label: key,
+          children: (value || []).map((item) => ({ id: null, label: item })),
+        }));
 
   return (
     <Box
@@ -215,16 +219,21 @@ export default function Controller() {
       <Box sx={{ position: "absolute", inset: 0, zIndex: 0 }}>
         <Aurora />
       </Box>
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          background: theme.custom.gradients.heroSoft,
+        }}
+      />
 
-      {/* Show root categories OR children overlay - NOT both */}
       {!openCategoryNode ? (
-        // ROOT LEVEL: Show only root categories
         <>
-          {displayCategories.map((cat, index) => {
+          {displayCategories.map((cat) => {
             const category = cat.label;
-            const subcategories = (cat.children || []).map((c) => c.label);
-            const isActiveMain =
-              selected.category === category && !selected.subcategory;
+            const subcategories = (cat.children || []).map((child) => child.label);
+            const isActiveMain = selected.category === category && !selected.subcategory;
 
             return (
               <motion.div
@@ -235,11 +244,12 @@ export default function Controller() {
                 transition={{ duration: 0.5 }}
                 style={{
                   ...bubbleBase,
+                  zIndex: 3,
                   backgroundImage: isActiveMain
-                    ? "linear-gradient(to top, #64b5f6 0%, #1e88e5 100%)"
+                    ? "linear-gradient(145deg, #1C932D 0%, #43B455 52%, #390042 100%)"
                     : bubbleBase.backgroundImage,
                   boxShadow: isActiveMain
-                    ? "0 0 20px rgba(33, 150, 243, 0.8)"
+                    ? "0 0 28px rgba(28, 147, 45, 0.55)"
                     : bubbleBase.boxShadow,
                 }}
                 onClick={() => handleCategoryClick(category, subcategories, cat.id)}
@@ -251,27 +261,30 @@ export default function Controller() {
 
           <Typography
             variant="h5"
+            dir={isArabic ? "rtl" : "ltr"}
             sx={{
               position: "absolute",
               bottom: 30,
-              color: "white",
+              color: "#F8FCF6",
+              zIndex: 4,
               fontWeight: "bold",
               textAlign: "center",
               width: "100%",
+              fontFamily: getMotionFontFamily(),
             }}
           >
             {translations[language].instruction}
           </Typography>
         </>
       ) : (
-        // DRILL-DOWN LEVEL: Show only children of openCategoryNode
         (() => {
           const node = findNodeById(categoryTree, openCategoryNode);
           if (!node || !node.children || node.children.length === 0) return null;
 
           const currentPath = findPathToNode(categoryTree, openCategoryNode) || [];
           const parentPath = currentPath.slice(0, -1);
-          const parentNode = parentPath.length > 0 ? findNodeById(categoryTree, parentPath[parentPath.length - 1]) : null;
+          const parentNode =
+            parentPath.length > 0 ? findNodeById(categoryTree, parentPath[parentPath.length - 1]) : null;
 
           return (
             <Box
@@ -287,13 +300,12 @@ export default function Controller() {
                 pt: 4,
               }}
             >
-              {/* Back Button - Top Left */}
               <Box sx={{ position: "absolute", top: 30, left: 30, zIndex: 70 }}>
                 <Button
                   variant="contained"
                   startIcon={<ArrowBackIcon />}
                   onClick={() => {
-                    setSelectedLeafId(null); // Clear leaf selection when going back
+                    setSelectedLeafId(null);
                     if (parentNode) {
                       setOpenCategoryNode(parentNode._id);
                     } else {
@@ -301,32 +313,32 @@ export default function Controller() {
                     }
                   }}
                   sx={{
-                    backgroundColor: "rgba(255,255,255,0.9)",
-                    color: "#333",
-                    "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
+                    backgroundColor: "rgba(248,252,246,0.92)",
+                    color: "#07280B",
+                    "&:hover": { backgroundColor: "rgba(248,252,246,1)" },
                   }}
                 >
                   {translations[language].back}
                 </Button>
               </Box>
 
-              {/* Current Level Title */}
               <Typography
+                dir={isArabic ? "rtl" : "ltr"}
                 sx={{
                   position: "absolute",
                   top: 100,
-                  color: "white",
+                  color: "#F8FCF6",
                   fontWeight: "bold",
                   fontSize: "2rem",
                   textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
                   textAlign: "center",
                   px: 2,
+                  fontFamily: getMotionFontFamily(),
                 }}
               >
-                {node.name?.en}
+                {getNodeLabel(node)}
               </Typography>
 
-              {/* Children Bubbles */}
               <Box
                 sx={{
                   display: "flex",
@@ -348,15 +360,12 @@ export default function Controller() {
                       whileTap={{ scale: 0.95 }}
                       animate={isSelectedLeaf ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
                       transition={{ duration: 0.5 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Check if this child has its own children
+                      onClick={(event) => {
+                        event.stopPropagation();
                         if (hasChildren) {
-                          // Open this as the new parent
                           setOpenCategoryNode(child._id);
-                          setSelectedLeafId(null); // Clear leaf selection when drilling deeper
+                          setSelectedLeafId(null);
                         } else {
-                          // This is a leaf - select it
                           handleSubBubbleClick(node.name?.en || "", child.name?.en || child.label, child._id || child.id);
                         }
                       }}
@@ -365,15 +374,20 @@ export default function Controller() {
                         width: "8rem",
                         height: "8rem",
                         fontSize: "1.25rem",
+                        zIndex: 61,
                         backgroundImage: isSelectedLeaf
-                          ? "linear-gradient(to top, #76ff03 0%, #64dd17 100%)"
-                          : (hasChildren ? "linear-gradient(120deg, #4facfe 0%, #00f2fe 100%)" : bubbleBase.backgroundImage),
+                          ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
+                          : hasChildren
+                            ? "linear-gradient(145deg, #390042 0%, #5A1B64 100%)"
+                            : bubbleBase.backgroundImage,
                         boxShadow: isSelectedLeaf
-                          ? "0 0 25px rgba(118, 255, 3, 0.9)"
-                          : (hasChildren ? "0 0 12px rgba(102, 166, 255, 0.6)" : bubbleBase.boxShadow),
+                          ? "0 0 25px rgba(28, 147, 45, 0.65)"
+                          : hasChildren
+                            ? "0 0 18px rgba(57, 0, 66, 0.45)"
+                            : bubbleBase.boxShadow,
                       }}
                     >
-                      {child.name?.en || child.label || child._id}
+                      {getNodeLabel(child)}
                       {hasChildren && (
                         <Box
                           sx={{
@@ -416,29 +430,33 @@ export default function Controller() {
 
       <Typography
         variant="h5"
+        dir={isArabic ? "rtl" : "ltr"}
         sx={{
           position: "absolute",
           bottom: 30,
-          color: "white",
+          color: "#F8FCF6",
+          zIndex: 4,
           fontWeight: "bold",
           textAlign: "center",
           width: "100%",
+          fontFamily: getMotionFontFamily(),
+          pointerEvents: "none",
+          opacity: openCategoryNode ? 0 : 1,
         }}
       >
         {translations[language].instruction}
       </Typography>
 
-      {/* Carbon Footprint Toggle Button */}
       <motion.div
         onClick={() => {
-          sendCarbonMode(true, 100); 
-          router.push("/controller/carbon-footprint")
+          sendCarbonMode(true, 100);
+          router.push("/controller/carbon-footprint");
         }}
         initial={false}
         animate={{
           scale: 1,
-          background: "linear-gradient(to top, #00c851, #1de9b6)", // ✅ green gradient
-          boxShadow: "0 4px 10px rgba(0, 200, 130, 0.4)", // ✅ optional green glow
+          background: "linear-gradient(145deg, #1C932D 0%, #43B455 100%)",
+          boxShadow: "0 10px 24px rgba(28, 147, 45, 0.42)",
         }}
         transition={{ duration: 0.3 }}
         style={{
@@ -451,16 +469,19 @@ export default function Controller() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: '"JetBrains Mono", monospace',
+          fontFamily: getMotionFontFamily(),
           fontWeight: "bold",
           fontSize: "1rem",
-          color: "#fff",
+          color: "#F8FCF6",
           cursor: "pointer",
           userSelect: "none",
           zIndex: 99,
+          border: "1px solid rgba(248, 252, 246, 0.18)",
+          textAlign: "center",
+          padding: "0.75rem",
         }}
       >
-        Carbon Footprint
+        {translations[language].carbonFootprint}
       </motion.div>
     </Box>
   );
