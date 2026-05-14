@@ -37,6 +37,7 @@ import CMSBackgroundManager from "../components/CMSBackgroundManager";
 import { Tabs, Tab } from "@mui/material";
 import useWebSocketController from "@/hooks/useWebSocketController";
 import CategoryManager from "./CategoryManager";
+import { getAccessToken, logoutUser } from "@/services/authService";
 
 export default function CMSPage() {
   const router = useRouter();
@@ -214,13 +215,18 @@ export default function CMSPage() {
     }
   };
 
-  useEffect(() => {
-    fetchMedia();
-  }, []);
-
-  const logout = () => {
-    router.push("/"); // Add your logout logic here
+  const logout = async () => {
+    await logoutUser();
   };
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      router.push("/login");
+    } else {
+      fetchMedia();
+    }
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
