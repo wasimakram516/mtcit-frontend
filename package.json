@@ -19,7 +19,7 @@
     "axios": "^1.7.9",
     "canvas-confetti": "^1.9.3",
     "framer-motion": "^12.10.1",
-    "next": "^15.2.5",
+    "next": "15.2.8",
     "react": "^19.0.0",
     "react-confetti": "^6.2.2",
     "react-dom": "^19.0.0",
