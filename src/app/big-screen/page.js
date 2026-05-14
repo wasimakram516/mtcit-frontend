@@ -1,6 +1,5 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Box, Typography, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import useWebSocketBigScreen from "@/hooks/useWebSocketBigScreen";
@@ -8,6 +7,17 @@ import { FourSquare } from "react-loading-indicators";
 import { motion } from "framer-motion";
 import CloudsBackground from "@/app/components/CloudsBackground";
 import DynamicBackground from "../components/DynamicBackground";
+
+/** Layer X/Y/size are 0–100% of the media-stage box; keep rect inside so nothing spills past that frame. */
+function getMediaLayerRect(position, size) {
+  const x = Math.min(100, Math.max(0, Number(position?.x) || 0));
+  const y = Math.min(100, Math.max(0, Number(position?.y) || 0));
+  const rawW = Math.min(100, Math.max(0, Number(size?.width) || 100));
+  const rawH = Math.min(100, Math.max(0, Number(size?.height) || 100));
+  const width = Math.min(rawW, 100 - x);
+  const height = Math.min(rawH, 100 - y);
+  return { x, y, width, height };
+}
 
 export default function BigScreenPage() {
   const router = useRouter();
@@ -20,8 +30,9 @@ export default function BigScreenPage() {
     carbonLevel,
     categoryTree,
   } = useWebSocketBigScreen();
-  const [showContent, setShowContent] = useState(false);
-  const [showLoader, setShowLoader] = useState(false);
+
+  /** Full-stage loader while controller is changing category (isLoading true). Slug-only updates set isLoading false without flashing this. */
+  const showBlockingLoader = isLoading;
 
   const getCarbonColor = (value) => {
     if (value >= 90) return "#0a1f16"; // near-black greenish
@@ -80,18 +91,11 @@ export default function BigScreenPage() {
   const titleSize = "clamp(1.75rem, 2.4vw, 4rem)";
   const subtitleSize = "clamp(1.2rem, 1.8vw, 3rem)";
 
-  useEffect(() => {
-    if (isLoading) {
-      setShowLoader(true);
-      setShowContent(false);
-    } else {
-      const timer = setTimeout(() => {
-        setShowLoader(false);
-        setShowContent(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, currentMedia]);
+  /** Stacking inside the 90% stage: background lowest, media stack mid, logo on top. */
+  const zStageFallbackBg = 0;
+  const zStageMediaBgLayers = 1;
+  const zStageForeground = 10;
+  const zStagePinpoint = 100;
 
   return (
     <Box
@@ -125,12 +129,20 @@ export default function BigScreenPage() {
           boxSizing: "border-box",
         }}
       >
-        {/* Global Custom Background Fallback / Carbon Mode */}
+        {/* Global Custom Background Fallback / Carbon Mode — bottom of stage stack */}
         {(carbonActive || !currentMedia || currentMediaLayers.length === 0) && (
-          <DynamicBackground language={currentLanguage} />
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              zIndex: zStageFallbackBg,
+            }}
+          >
+            <DynamicBackground language={currentLanguage} />
+          </Box>
         )}
 
-        {/* Media-Specific Background Layers (prioritized) */}
+        {/* Media-Specific Background Layers — above fallback, below foreground */}
         {!carbonActive && currentMedia && currentMediaLayers.length > 0 && (
           <Box
             sx={{
@@ -139,15 +151,28 @@ export default function BigScreenPage() {
               left: 0,
               width: "100%",
               height: "100%",
-              zIndex: 1,
+              zIndex: zStageMediaBgLayers,
               backgroundColor: "#fff",
             }}
           >
             {currentMediaLayers.map((layer, index) => {
               const isAr = currentLanguage === "ar";
-              const fileData = isAr ? (layer.fileAr || layer.file) : (layer.fileEn || layer.file);
-              const src = fileData?.url || (isAr ? layer.existingUrlAr : (layer.existingUrlEn || layer.existingUrl));
-              const type = fileData?.type || (isAr ? layer.typeAr : (layer.typeEn || layer.type)) || "image";
+              const prefObj = isAr ? layer.fileAr : layer.fileEn;
+              const prefUrl = prefObj?.url;
+
+              const fallbackObj = isAr ? layer.fileEn : layer.fileAr;
+              const fallbackUrl = fallbackObj?.url;
+
+              let src = null;
+              let type = "image";
+
+              if (prefUrl) {
+                src = prefUrl;
+                type = prefObj?.type || (isAr ? layer.typeAr : layer.typeEn) || layer.type || "image";
+              } else if (fallbackUrl) {
+                src = fallbackUrl;
+                type = fallbackObj?.type || (isAr ? layer.typeEn : layer.typeAr) || layer.type || "image";
+              }
 
               if (!src) return null;
 
@@ -189,7 +214,7 @@ export default function BigScreenPage() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 10,
+            zIndex: zStageForeground,
             pointerEvents: "auto", // Allow interactions inside the viewport
           }}
         >
@@ -275,12 +300,11 @@ export default function BigScreenPage() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 10,
           }}
         >
 
 
-          {showLoader && (
+          {showBlockingLoader && (
             <Box sx={{ zIndex: 2 }}>
               <FourSquare
                 color={["#32cd32", "#96D8EA", "#cd32cd", "#cd8032"]}
@@ -289,11 +313,12 @@ export default function BigScreenPage() {
             </Box>
           )}
 
-          {!isLoading && showContent && !currentMedia && (
+          {/* Idle cover — shown when no media is selected */}
+          {!showBlockingLoader && !currentMedia && (
             <Box sx={{ position: "relative", width: "100%", height: "90%" }}>
               <Box
                 component="img"
-                src={currentLanguage === "en" ? "/CoverEn.gif" : "CoverAr.gif"}
+                src={currentLanguage === "en" ? "/CoverEn.gif" : "/CoverAr.gif"}
                 alt="Display Image"
                 sx={{
                   width: "100%",
@@ -305,144 +330,127 @@ export default function BigScreenPage() {
             </Box>
           )}
 
-          {!isLoading &&
-            showContent &&
-            currentMedia?.media && (
-              (() => {
-                // Try to get media for current language, fallback to other language if needed
-                let mediaInfo = currentMedia.media[currentLanguage];
-                let usedLanguage = currentLanguage;
-                
-                if (!mediaInfo && currentLanguage === "ar" && currentMedia.media.en) {
-                  console.log(`⚠️ Arabic media not available, using English fallback`);
-                  mediaInfo = currentMedia.media.en;
-                  usedLanguage = "en";
-                } else if (!mediaInfo && currentLanguage === "en" && currentMedia.media.ar) {
-                  console.log(`⚠️ English media not available, using Arabic fallback`);
-                  mediaInfo = currentMedia.media.ar;
-                  usedLanguage = "ar";
-                }
-                
-                if (!mediaInfo?.url) {
-                  console.log(`❌ No valid media URL found for ${currentLanguage} or fallback`);
-                  return null;
-                }
-                
-                const type = mediaInfo?.type || "image";
-                const url = mediaInfo?.url;
-                
-                console.log(`✅ Rendering ${type} with language: ${usedLanguage}, URL: ${url}`);
-                
-                if (type === "image") {
-                  return (
-                    <Box
-                      sx={{
-                        position: "relative",
-                        width: "fit-content",
-                        maxWidth: mediaMaxWidth,
-                        maxHeight: mediaMaxHeight,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      {/* Dynamic Media Logo */}
-                      {currentMedia.pinpoint?.file?.url && (
-                        <motion.img
-                          src={currentMedia.pinpoint.file.url}
-                          alt="Logo"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          style={{
-                            position: "absolute",
-                            top: `${currentMedia.pinpoint.position?.y || 0}%`,
-                            left: `${currentMedia.pinpoint.position?.x || 0}%`,
-                            transform: "translate(-50%, -50%)",
-                            width: logoSize,
-                            height: "auto",
-                            zIndex: 5,
-                            filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
-                          }}
-                        />
-                      )}
-                      
-                      <Box
-                        component="img"
-                        src={url}
-                        alt="Display Image"
-                        sx={{
-                          width: "100%",
-                          maxWidth: mediaMaxWidth,
-                          height: "auto",
-                          maxHeight: mediaMaxHeight,
-                          objectFit: "contain",
-                          borderRadius: stageRadius,
-                          zIndex: 2,
-                          display: "block",
-                          boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                        }}
-                      />
-                    </Box>
-                  );
-                } else if (type === "video") {
-                  return (
-                    <Box
-                      sx={{
-                        position: "relative",
-                        width: "fit-content",
-                        maxWidth: mediaMaxWidth,
-                        maxHeight: mediaMaxHeight,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      {/* Dynamic Pinpoint Logo */}
-                      {currentMedia.pinpoint?.file?.url && (
-                        <motion.img
-                          src={currentMedia.pinpoint.file.url}
-                          alt="Logo"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          style={{
-                            position: "absolute",
-                            top: `${currentMedia.pinpoint.position?.y || 0}%`,
-                            left: `${currentMedia.pinpoint.position?.x || 0}%`,
-                            transform: "translate(-50%, -50%)",
-                            width: logoSize,
-                            height: "auto",
-                            zIndex: 5,
-                            filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
-                          }}
-                        />
-                      )}
+          {/* 70% centered media content layers container (above background, below pinpoint) */}
+          {currentMedia && (() => {
+            const mediaLayerList = [...(currentMedia.mediaLayers || [])].sort(
+              (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
+            );
 
+            if (mediaLayerList.length === 0) return null;
+
+            return (
+              <Box
+                sx={{
+                  position: "relative",
+                  width: "70%",
+                  height: "70%", // Needs height so absolute children don't collapse
+                  maxWidth: "clamp(320px, 70%, 1800px)",
+                  flexShrink: 0,
+                  overflow: "hidden",
+                  borderRadius: stageRadius,
+                  boxSizing: "border-box",
+                }}
+              >
+                {/* 100% × 100% of the media frame — all layer % are relative to this box only */}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {/* Media content layers */}
+                  {mediaLayerList.map((layer, index) => {
+                    const isAr = currentLanguage === "ar";
+                    const prefObj = isAr ? layer.fileAr : layer.fileEn;
+                    const prefUrl = prefObj?.url;
+
+                    const fallbackObj = isAr ? layer.fileEn : layer.fileAr;
+                    const fallbackUrl = fallbackObj?.url;
+
+                    let src = null;
+                    let type = "image";
+
+                    if (prefUrl) {
+                      src = prefUrl;
+                      type = prefObj?.type || (isAr ? layer.typeAr : layer.typeEn) || layer.type || "image";
+                    } else if (fallbackUrl) {
+                      src = fallbackUrl;
+                      type = fallbackObj?.type || (isAr ? layer.typeEn : layer.typeAr) || layer.type || "image";
+                    }
+
+                    if (!src || layer.isActive === false) return null;
+
+                    const { x: posX, y: posY, width: sizeW, height: sizeH } = getMediaLayerRect(
+                      layer.position,
+                      layer.size
+                    );
+
+                    return (
                       <Box
-                        component="video"
-                        src={url}
-                        autoPlay
-                        muted
-                        loop
+                        key={`ml-${src}-${index}`}
+                        component={type === "video" ? "video" : "img"}
+                        src={src}
+                        autoPlay={type === "video" || undefined}
+                        muted={type === "video" || undefined}
+                        loop={type === "video" || undefined}
+                        playsInline={type === "video" || undefined}
+                        alt={type !== "video" ? `Media Layer ${index + 1}` : undefined}
                         sx={{
-                          width: "100%",
-                          maxWidth: mediaMaxWidth,
-                          height: "auto",
-                          maxHeight: mediaMaxHeight,
+                          position: "absolute",
+                          top: `${posY}%`,
+                          left: `${posX}%`,
+                          width: `${sizeW}%`,
+                          height: `${sizeH}%`,
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          boxSizing: "border-box",
                           objectFit: "contain",
+                          objectPosition: "center",
+                          opacity: layer.opacity ?? 1,
+                          transform: `rotate(${layer.rotation || 0}deg)`,
+                          transformOrigin: "center center",
+                          zIndex: layer.zIndex ?? index + 1,
                           borderRadius: stageRadius,
-                          zIndex: 2,
-                          display: "block",
-                          boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                          boxShadow: index === 0 ? "0 20px 50px rgba(0,0,0,0.3)" : "none",
                         }}
                       />
-                    </Box>
-                  );
-                }
-                
-                return null;
-              })()
-            )}
+                    );
+                  })}
+                </Box>
+              </Box>
+            );
+          })()}
         </Box>
+
+        {/* Logo / pinpoint — full 90% stage; X/Y are 0–100% of entire stage; above media & backgrounds */}
+        {currentMedia?.pinpoint?.file?.url &&
+          !carbonActive && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                zIndex: zStagePinpoint,
+              }}
+            >
+              <motion.img
+                src={currentMedia.pinpoint.file.url}
+                alt="Logo"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                style={{
+                  position: "absolute",
+                  top: `${currentMedia.pinpoint.position?.y || 0}%`,
+                  left: `${currentMedia.pinpoint.position?.x || 0}%`,
+                  transform: "translate(-50%, -50%)",
+                  width: logoSize,
+                  height: "auto",
+                  filter: "drop-shadow(0 0 10px rgba(255,255,255,0.8))",
+                }}
+              />
+            </Box>
+          )}
 
         </Box>
       </Box>

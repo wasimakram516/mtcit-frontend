@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useLanguage } from "@/app/context/LanguageContext"; 
 import useWebSocketController from "@/hooks/useWebSocketController";
 
-const LanguageSelector = () => {
+const LanguageSelector = ({ absolute = true }) => {
   const { language, toggleLanguage } = useLanguage();
   const { sendLanguageChange } = useWebSocketController();
 
@@ -14,7 +14,14 @@ const LanguageSelector = () => {
   };
 
   return (
-    <Box sx={{ position: "absolute", top: 16, right: 20, width: "96px", height: "44px", zIndex: 1000 }}>
+    <Box sx={{ 
+      position: absolute ? "absolute" : "relative", 
+      top: absolute ? 16 : 0, 
+      right: absolute ? 20 : 0, 
+      width: "96px", 
+      height: "44px", 
+      zIndex: 1000 
+    }}>
       {/* Inactive Button (Behind) */}
       <motion.div
         initial={{ opacity: 0.5, y: 10, x: 10 }}

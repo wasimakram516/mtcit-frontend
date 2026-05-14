@@ -16,6 +16,7 @@ const ConfirmationDialog = ({
   title,
   message,
   confirmButtonText,
+  cancelButtonText = "Cancel",
 }) => {
   return (
     <Dialog
@@ -78,7 +79,7 @@ const ConfirmationDialog = ({
             padding: "0.5rem 2rem",
           }}
         >
-          Cancel
+          {cancelButtonText}
         </Button>
         <Button
           onClick={onConfirm}

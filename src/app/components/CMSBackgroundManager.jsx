@@ -24,8 +24,34 @@ import {
   VisibilityOff,
   Add,
 } from "@mui/icons-material";
-import api from "@/services/api";
+import { deleteBackground, getBackgrounds, updateBackground, createBackground, moveBackgroundLayer } from "@/services/BackgroundService";
 import { useLanguage } from "@/app/context/LanguageContext";
+import ConfirmationDialog from "./ConfirmationDialog";
+
+const ProgressOverlay = ({ progress }) => (
+  <Box
+    sx={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      bgcolor: "rgba(0, 0, 0, 0.6)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 10,
+      borderRadius: "inherit",
+      backdropFilter: "blur(2px)",
+    }}
+  >
+    <CircularProgress variant="determinate" value={progress} color="primary" size={40} />
+    <Typography variant="caption" sx={{ color: "white", mt: 1, fontWeight: "bold" }}>
+      {progress}%
+    </Typography>
+  </Box>
+);
 
 export default function CMSBackgroundManager() {
   const { language } = useLanguage();
@@ -71,6 +97,8 @@ export default function CMSBackgroundManager() {
       failedDelete: "Failed to delete background",
       failedMove: "Failed to move layer",
       errorSaving: "Error saving background",
+      removeMedia: "Remove Media",
+      removeMediaConfirm: "Are you sure you want to remove this media asset?",
     },
     ar: {
       backgroundManager: "مدير الخلفيات",
@@ -112,6 +140,8 @@ export default function CMSBackgroundManager() {
       failedDelete: "فشل حذف الخلفية",
       failedMove: "فشل تحريك الطبقة",
       errorSaving: "خطأ في حفظ الخلفية",
+      removeMedia: "إزالة الوسائط",
+      removeMediaConfirm: "هل أنت متأكد أنك تريد إزالة أصل الوسائط هذا؟",
     },
   };
 
@@ -127,6 +157,9 @@ export default function CMSBackgroundManager() {
   const [selectedFileAr, setSelectedFileAr] = useState(null);
   const [previewEn, setPreviewEn] = useState(null);
   const [previewAr, setPreviewAr] = useState(null);
+  const [typeEn, setTypeEn] = useState(null);
+  const [typeAr, setTypeAr] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -136,13 +169,21 @@ export default function CMSBackgroundManager() {
     size: { width: 100, height: 100 },
     opacity: 1,
     rotation: 0,
+    removeImageEn: false,
+    removeImageAr: false,
   });
+
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [removeLang, setRemoveLang] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [selectedBgId, setSelectedBgId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch backgrounds
   const fetchBackgrounds = async () => {
     try {
-      const { data } = await api.get("/backgrounds");
-      setBackgrounds(data.data || []);
+      const backgrounds = await getBackgrounds();
+      setBackgrounds(backgrounds || []);
     } catch (error) {
       console.error("Failed to fetch backgrounds:", error);
     } finally {
@@ -170,8 +211,10 @@ export default function CMSBackgroundManager() {
         opacity: bg.opacity || 1,
         rotation: bg.rotation || 0,
       });
-      setPreviewEn(bg.imageUrlEn || bg.imageUrl); // Fallback to old imageUrl as English
-      setPreviewAr(bg.imageUrlAr || null);
+      setPreviewEn(bg.imageUrlEn || bg.imageUrl || bg.imageUrlAr);
+      setPreviewAr(bg.imageUrlAr || bg.imageUrlEn || bg.imageUrl);
+      setTypeEn(bg.imageUrlEn || bg.imageUrl ? (bg.typeEn || "image") : (bg.typeAr || "image"));
+      setTypeAr(bg.imageUrlAr ? (bg.typeAr || "image") : (bg.typeEn || "image"));
     } else {
       setEditingBg(null);
       setFormData({
@@ -184,6 +227,9 @@ export default function CMSBackgroundManager() {
       });
       setPreviewEn(null);
       setPreviewAr(null);
+      setTypeEn(null);
+      setTypeAr(null);
+      setFormData(prev => ({ ...prev, removeImageEn: false, removeImageAr: false }));
     }
     setSelectedFileEn(null);
     setSelectedFileAr(null);
@@ -199,6 +245,9 @@ export default function CMSBackgroundManager() {
     setSelectedFileAr(null);
     setPreviewEn(null);
     setPreviewAr(null);
+    setTypeEn(null);
+    setTypeAr(null);
+    setUploadProgress(0);
   };
 
   const handleFileChange = (e, lang) => {
@@ -210,11 +259,76 @@ export default function CMSBackgroundManager() {
       const nextPreview = URL.createObjectURL(file);
       setSelectedFileEn(file);
       setPreviewEn(nextPreview);
+      setTypeEn(file.type.startsWith("video/") ? "video" : "image");
+      setFormData(prev => ({ ...prev, removeImageEn: false }));
     } else {
       if (previewAr?.startsWith("blob:")) URL.revokeObjectURL(previewAr);
       const nextPreview = URL.createObjectURL(file);
       setSelectedFileAr(file);
       setPreviewAr(nextPreview);
+      setTypeAr(file.type.startsWith("video/") ? "video" : "image");
+      setFormData(prev => ({ ...prev, removeImageAr: false }));
+    }
+  };
+
+  const handleRemoveImageClick = (lang) => {
+    setRemoveLang(lang);
+    setRemoveConfirmOpen(true);
+  };
+
+  const confirmRemoveImage = async () => {
+    const lang = removeLang;
+    setUploading(true);
+    
+    try {
+      // If editing an existing background, delete from backend
+      if (editingBg) {
+        const updatePayload = new FormData();
+        if (lang === "en") {
+          updatePayload.append("removeImageEn", "true");
+        } else {
+          updatePayload.append("removeImageAr", "true");
+        }
+        
+        await updateBackground(editingBg._id, updatePayload);
+        showMessage("success", `${lang.toUpperCase()} image deleted from backend`);
+        
+        // Clear the preview immediately (set to null, not to other language)
+        if (lang === "en") {
+          setPreviewEn(null);
+          setSelectedFileEn(null);
+        } else {
+          setPreviewAr(null);
+          setSelectedFileAr(null);
+        }
+        
+        // Refresh backgrounds list for consistency
+        await fetchBackgrounds();
+        const updated = backgrounds.find(b => b._id === editingBg._id);
+        if (updated) {
+          setEditingBg(updated);
+        }
+      } else {
+        // New background - just clear form field
+        if (lang === "en") {
+          if (previewEn?.startsWith("blob:")) URL.revokeObjectURL(previewEn);
+          setSelectedFileEn(null);
+          setPreviewEn(null);
+          setFormData(prev => ({ ...prev, removeImageEn: true }));
+        } else {
+          if (previewAr?.startsWith("blob:")) URL.revokeObjectURL(previewAr);
+          setSelectedFileAr(null);
+          setPreviewAr(null);
+          setFormData(prev => ({ ...prev, removeImageAr: true }));
+        }
+      }
+    } catch (error) {
+      console.error("Error removing image:", error);
+      showMessage("error", error || "Failed to delete image");
+    } finally {
+      setUploading(false);
+      setRemoveConfirmOpen(false);
+      setRemoveLang(null);
     }
   };
 
@@ -246,81 +360,86 @@ export default function CMSBackgroundManager() {
       if (selectedFileAr) {
         formDataToSend.append("imageAr", selectedFileAr);
       }
+      if (typeEn) formDataToSend.append("typeEn", typeEn);
+      if (typeAr) formDataToSend.append("typeAr", typeAr);
+      
+      if (formData.removeImageEn) formDataToSend.append("removeImageEn", "true");
+      if (formData.removeImageAr) formDataToSend.append("removeImageAr", "true");
+
+      const config = {
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        },
+      };
 
       const response = editingBg
-        ? await api.put(`/backgrounds/${editingBg._id}`, formDataToSend)
-        : await api.post("/backgrounds", formDataToSend);
+        ? await updateBackground(editingBg._id, formDataToSend, config)
+        : await createBackground(formDataToSend, config);
 
-      if (response.status >= 200 && response.status < 300) {
-        const responseMessage =
-          response.data?.message ||
-          (editingBg ? t.successUpdate : t.successCreate);
-        showMessage("success", responseMessage);
-        handleCloseDialog();
-        fetchBackgrounds();
-      } else {
-        showMessage("error", response.data?.message || t.errorSaving);
-      }
+      const responseMessage =
+        response?.message ||
+        (editingBg ? t.successUpdate : t.successCreate);
+      showMessage("success", responseMessage);
+      handleCloseDialog();
+      await fetchBackgrounds();
     } catch (error) {
       console.error("Error:", error);
       showMessage("error", error?.response?.data?.message || t.errorSaving);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm(t.deleteConfirm)) return;
+  const handleDeleteClick = (id) => {
+    setSelectedBgId(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedBgId) return;
+    setDeleting(true);
 
     try {
-      const response = await api.delete(`/backgrounds/${id}`);
-
-      if (response.status >= 200 && response.status < 300) {
-        showMessage("success", t.successDelete);
-        fetchBackgrounds();
-      } else {
-        showMessage("error", t.failedDelete);
-      }
+      await deleteBackground(selectedBgId);
+      showMessage("success", t.successDelete);
+      await fetchBackgrounds();
     } catch (error) {
       console.error("Error:", error);
-      showMessage("error", t.errorSaving);
+      showMessage("error", error || t.failedDelete);
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+      setSelectedBgId(null);
     }
   };
 
   const handleMoveLayer = async (id, direction) => {
     try {
-      const response = await api.put(
-        direction === "up"
-          ? `/backgrounds/${id}/forward`
-          : `/backgrounds/${id}/backward`
+      await moveBackgroundLayer(id, direction);
+      showMessage(
+        "success",
+        `${t.successMoved} ${direction === "up" ? t.forward : t.backward}`
       );
-
-      if (response.status >= 200 && response.status < 300) {
-        showMessage(
-          "success",
-          `${t.successMoved} ${direction === "up" ? t.forward : t.backward}`
-        );
-        fetchBackgrounds();
-      } else {
-        showMessage("error", response.data?.message || t.failedMove);
-      }
+      await fetchBackgrounds();
     } catch (error) {
       console.error("Error:", error);
-      showMessage("error", error?.response?.data?.message || t.failedMove);
+      showMessage("error", error || t.failedMove);
     }
   };
 
   const handleToggleActive = async (bg) => {
     try {
-      const response = await api.put(`/backgrounds/${bg._id}`, {
+      await updateBackground(bg._id, {
         isActive: !bg.isActive,
       });
-
-      if (response.status >= 200 && response.status < 300) {
-        fetchBackgrounds();
-      }
+      await fetchBackgrounds();
     } catch (error) {
       console.error("Error:", error);
+      showMessage("error", error || "Failed to update background");
     }
   };
 
@@ -383,10 +502,6 @@ export default function CMSBackgroundManager() {
                 borderRadius: 2,
                 border: "1px solid #ddd",
                 backgroundColor: bg.isActive ? "#fafafa" : "#f5f5f5",
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                gap: 2,
-                opacity: bg.isActive ? 1 : 0.6,
               }}
             >
               {/* Preview Section */}
@@ -394,48 +509,78 @@ export default function CMSBackgroundManager() {
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
                   {t.preview} (En / Ar)
                 </Typography>
-                <Box sx={{ display: "flex", gap: 1, flexDirection: { xs: "column", sm: "row" } }}>
+                <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
                   {(() => {
-                    const srcEn = bg.imageUrlEn || bg.imageUrl || null;
-                    const srcAr = bg.imageUrlAr || null;
+                    const isEnMissing = !bg.imageUrlEn && !bg.imageUrl;
+                    const isArMissing = !bg.imageUrlAr;
+
+                    const srcEn = bg.imageUrlEn || bg.imageUrl || bg.imageUrlAr || null;
+                    const typeEn = (bg.imageUrlEn || bg.imageUrl) ? bg.typeEn : bg.typeAr;
+
+                    const srcAr = bg.imageUrlAr || bg.imageUrlEn || bg.imageUrl || null;
+                    const typeAr = bg.imageUrlAr ? bg.typeAr : (bg.typeEn || "image");
 
                     return (
                       <>
-                        {srcEn ? (
-                          <Box
-                            component="img"
-                            src={srcEn}
-                            alt={`${bg.title} EN`}
-                            sx={{
-                              width: "150px",
-                              height: "100px",
-                              objectFit: "contain",
-                              backgroundColor: "#eee",
-                              borderRadius: 2,
-                              border: "1px solid #ddd",
-                            }}
-                          />
-                        ) : (
-                          <Box sx={{ width: "150px", height: "100px", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }} />
-                        )}
+                        {/* English Preview */}
+                        <Box sx={{ textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, mb: 0.5 }}>
+                            <Typography variant="caption" fontWeight="bold">EN</Typography>
+                            {isEnMissing && srcEn && (
+                              <Typography variant="caption" sx={{ px: 0.5, py: 0.1, bgcolor: "warning.light", color: "warning.contrastText", borderRadius: 1, fontSize: "0.65rem" }}>
+                                FALLBACK
+                              </Typography>
+                            )}
+                          </Box>
+                          {srcEn ? (
+                            typeEn === "video" || srcEn.match(/\.(mp4|webm|ogg)$/i) ? (
+                              <Box
+                                component="video"
+                                src={srcEn}
+                                autoPlay loop muted playsInline
+                                sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#000", borderRadius: 2, border: "1px solid #ddd" }}
+                              />
+                            ) : (
+                              <Box
+                                component="img"
+                                src={srcEn}
+                                sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                              />
+                            )
+                          ) : (
+                            <Box sx={{ width: "150px", height: "100px", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }} />
+                          )}
+                        </Box>
 
-                        {srcAr ? (
-                          <Box
-                            component="img"
-                            src={srcAr}
-                            alt={`${bg.title} AR`}
-                            sx={{
-                              width: "150px",
-                              height: "100px",
-                              objectFit: "contain",
-                              backgroundColor: "#eee",
-                              borderRadius: 2,
-                              border: "1px solid #ddd",
-                            }}
-                          />
-                        ) : (
-                          <Box sx={{ width: "150px", height: "100px", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }} />
-                        )}
+                        {/* Arabic Preview */}
+                        <Box sx={{ textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, mb: 0.5 }}>
+                            <Typography variant="caption" fontWeight="bold">AR</Typography>
+                            {isArMissing && srcAr && (
+                              <Typography variant="caption" sx={{ px: 0.5, py: 0.1, bgcolor: "warning.light", color: "warning.contrastText", borderRadius: 1, fontSize: "0.65rem" }}>
+                                FALLBACK
+                              </Typography>
+                            )}
+                          </Box>
+                          {srcAr ? (
+                            typeAr === "video" || srcAr.match(/\.(mp4|webm|ogg)$/i) ? (
+                              <Box
+                                component="video"
+                                src={srcAr}
+                                autoPlay loop muted playsInline
+                                sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#000", borderRadius: 2, border: "1px solid #ddd" }}
+                              />
+                            ) : (
+                              <Box
+                                component="img"
+                                src={srcAr}
+                                sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                              />
+                            )
+                          ) : (
+                            <Box sx={{ width: "150px", height: "100px", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }} />
+                          )}
+                        </Box>
                       </>
                     );
                   })()}
@@ -532,13 +677,12 @@ export default function CMSBackgroundManager() {
                   >
                     {t.edit}
                   </Button>
-
                   <Button
                     size="small"
                     variant="outlined"
                     color="error"
                     startIcon={<Delete />}
-                    onClick={() => handleDelete(bg._id)}
+                    onClick={() => handleDeleteClick(bg._id)}
                   >
                     {t.delete}
                   </Button>
@@ -550,92 +694,119 @@ export default function CMSBackgroundManager() {
         )}
       </Box>
 
-      {/* Edit/Create Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth>
-        <DialogTitle>
-          {editingBg ? `${t.edit} ${t.backgroundManager}` : `${t.addBackground} ${t.backgroundManager}`}
-        </DialogTitle>
-
+      {/* Dialog for Add/Edit */}
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+        <DialogTitle>{editingBg ? t.edit : t.addBackground}</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {/* English File Upload */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {editingBg ? t.currentImage : t.uploadImage}
-              </Typography>
-               {previewEn && (
-                 <Box
-                   component="img"
-                   src={previewEn}
-                   alt="English Preview"
-                   sx={{
-                     width: "150px",
-                     height: "100px",
-                     objectFit: "contain",
-                     backgroundColor: "#eee",
-                     borderRadius: 2,
-                     border: "1px solid #ddd",
-                     mb: 2,
-                   }}
-                 />
-               )}
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, "en")}
-                fullWidth
-              />
-            </Box>
-
-            {/* Arabic File Upload */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {editingBg ? t.currentImageAr : t.uploadImageAr}
-              </Typography>
-               {previewAr && (
-                 <Box
-                   component="img"
-                   src={previewAr}
-                   alt="Arabic Preview"
-                   sx={{
-                     width: "150px",
-                     height: "100px",
-                     objectFit: "contain",
-                     backgroundColor: "#eee",
-                     borderRadius: 2,
-                     border: "1px solid #ddd",
-                     mb: 2,
-                   }}
-                 />
-               )}
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, "ar")}
-                fullWidth
-              />
-            </Box>
-
+          {message.text && (
+            <Alert severity={message.type} sx={{ mb: 2, mt: 1 }}>
+              {message.text}
+            </Alert>
+          )}
+          <Box sx={{ mt: 2 }}>
             {/* Title */}
             <TextField
+              fullWidth
               label={t.title}
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              fullWidth
-              required
+              sx={{ mb: 2 }}
             />
 
             {/* Description */}
             <TextField
+              fullWidth
               label={t.description}
               value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              fullWidth
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               multiline
               rows={2}
+              sx={{ mb: 2 }}
             />
+
+            {/* English Image Upload */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t.uploadImage}</Typography>
+              <Input
+                type="file"
+                fullWidth
+                onChange={(e) => handleFileChange(e, "en")}
+                accept="image/*,video/*"
+              />
+              {previewEn && (
+                <Box sx={{ mt: 2, position: "relative", width: "fit-content", borderRadius: 2, overflow: "hidden" }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleRemoveImageClick("en")}
+                    sx={{ position: "absolute", top: 5, left: 5, bgcolor: "rgba(255,255,255,0.8)", zIndex: 10, "&:hover": { bgcolor: "#fff" } }}
+                  >
+                    <Delete fontSize="small" color="error" />
+                  </IconButton>
+                  {editingBg && !selectedFileEn && !editingBg.imageUrlEn && !editingBg.imageUrl && previewEn && (
+                    <Typography variant="caption" sx={{ position: "absolute", top: 5, right: 5, px: 1, py: 0.2, bgcolor: "warning.main", color: "#fff", borderRadius: 1, zIndex: 5, fontWeight: "bold" }}>
+                      FALLBACK FROM ARABIC
+                    </Typography>
+                  )}
+                  {uploading && selectedFileEn instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                  {typeEn === "video" || (previewEn.startsWith('blob:') && selectedFileEn?.type.startsWith('video/')) ? (
+                    <Box
+                      component="video"
+                      src={previewEn}
+                      autoPlay loop muted playsInline
+                      sx={{ width: "200px", height: "120px", objectFit: "contain", bgcolor: "#000", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  ) : (
+                    <Box
+                      component="img"
+                      src={previewEn}
+                      sx={{ width: "200px", height: "120px", objectFit: "contain", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  )}
+                </Box>
+              )}
+            </Box>
+
+            {/* Arabic Image Upload */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t.uploadImageAr}</Typography>
+              <Input
+                type="file"
+                fullWidth
+                onChange={(e) => handleFileChange(e, "ar")}
+                accept="image/*,video/*"
+              />
+              {previewAr && (
+                <Box sx={{ mt: 2, position: "relative", width: "fit-content", borderRadius: 2, overflow: "hidden" }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleRemoveImageClick("ar")}
+                    sx={{ position: "absolute", top: 5, left: 5, bgcolor: "rgba(255,255,255,0.8)", zIndex: 10, "&:hover": { bgcolor: "#fff" } }}
+                  >
+                    <Delete fontSize="small" color="error" />
+                  </IconButton>
+                  {editingBg && !selectedFileAr && !editingBg.imageUrlAr && previewAr && (
+                    <Typography variant="caption" sx={{ position: "absolute", top: 5, right: 5, px: 1, py: 0.2, bgcolor: "warning.main", color: "#fff", borderRadius: 1, zIndex: 5, fontWeight: "bold" }}>
+                      FALLBACK FROM ENGLISH
+                    </Typography>
+                  )}
+                  {uploading && selectedFileAr instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                  {typeAr === "video" || (previewAr.startsWith('blob:') && selectedFileAr?.type.startsWith('video/')) ? (
+                    <Box
+                      component="video"
+                      src={previewAr}
+                      autoPlay loop muted playsInline
+                      sx={{ width: "200px", height: "120px", objectFit: "contain", bgcolor: "#000", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  ) : (
+                    <Box
+                      component="img"
+                      src={previewAr}
+                      sx={{ width: "200px", height: "120px", objectFit: "contain", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  )}
+                </Box>
+              )}
+            </Box>
 
             {/* Position X */}
             <Box>
@@ -683,7 +854,7 @@ export default function CMSBackgroundManager() {
                   })
                 }
                 min={10}
-                max={200}
+                max={100}
                 marks
               />
             </Box>
@@ -700,7 +871,7 @@ export default function CMSBackgroundManager() {
                   })
                 }
                 min={10}
-                max={200}
+                max={100}
                 marks
               />
             </Box>
@@ -737,16 +908,51 @@ export default function CMSBackgroundManager() {
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={handleCloseDialog}>{t.cancel}</Button>
-          <Button
-            onClick={handleSaveBackground}
-            variant="contained"
-            disabled={uploading || (!editingBg && !selectedFileEn && !selectedFileAr) || !formData.title}
-          >
-            {uploading ? <CircularProgress size={20} /> : t.save}
+          {uploading && uploadProgress > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ flex: 1, ml: 2 }}>
+              Uploading... {uploadProgress}%
+            </Typography>
+          )}
+          {editingBg && (
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => handleDeleteClick(editingBg._id)}
+              startIcon={<Delete />}
+              disabled={uploading || deleting}
+              sx={{ mr: "auto" }}
+            >
+              {deleting ? <CircularProgress size={20} /> : t.delete}
+            </Button>
+          )}
+          <Button onClick={handleCloseDialog} disabled={uploading}>
+            {t.cancel}
+          </Button>
+          <Button onClick={handleSaveBackground} variant="contained" disabled={uploading}>
+            {uploading ? <CircularProgress size={24} /> : t.save}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmationDialog
+        open={removeConfirmOpen}
+        onClose={() => setRemoveConfirmOpen(false)}
+        onConfirm={confirmRemoveImage}
+        title={t.removeMedia || "Remove Media"}
+        message={t.removeMediaConfirm || "Are you sure you want to remove this media?"}
+        confirmButtonText={t.delete || "Delete"}
+        cancelButtonText={t.cancel || "Cancel"}
+      />
+
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title={t.delete || "Delete"}
+        message={t.deleteConfirm || "Are you sure you want to delete this background?"}
+        confirmButtonText={deleting ? <CircularProgress size={20} color="inherit" /> : (t.delete || "Delete")}
+        cancelButtonText={t.cancel || "Cancel"}
+      />
     </Box>
   );
 }

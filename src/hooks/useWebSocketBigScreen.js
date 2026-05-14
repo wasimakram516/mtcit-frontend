@@ -3,6 +3,35 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { getWebSocketHost } from "@/utils/runtimeConfig";
 
+function normalizeDisplayMediaPayload(raw) {
+  if (raw == null || typeof raw !== "object") return raw;
+  const m = { ...raw };
+  m.layers = Array.isArray(m.layers) ? m.layers : [];
+  m.mediaLayers = Array.isArray(m.mediaLayers) ? m.mediaLayers : [];
+
+  if (
+    m.mediaLayers.length === 0 &&
+    m.media &&
+    typeof m.media === "object" &&
+    (m.media.en?.url || m.media.ar?.url)
+  ) {
+    const en = m.media.en;
+    const ar = m.media.ar;
+    m.mediaLayers = [
+      {
+        fileEn: en?.url ? { type: en.type || "image", url: en.url } : undefined,
+        fileAr: ar?.url ? { type: ar.type || "image", url: ar.url } : undefined,
+        position: { x: 0, y: 0 },
+        size: { width: 100, height: 100 },
+        zIndex: 0,
+        isActive: true,
+      },
+    ];
+  }
+
+  return m;
+}
+
 export default function useWebSocketBigScreen() {
   const [socket, setSocket] = useState(null);
   const [allMedia, setAllMedia] = useState([]);
@@ -37,20 +66,17 @@ export default function useWebSocketBigScreen() {
       setAllMedia(mediaList);
     });
 
-    // Show loading when a category is selected
+    // Controller picked a category path: clear stage and show loader until displayMedia(null|payload) arrives.
     socketInstance.on("categorySelected", () => {
-      console.log("⏳ Category selected – show loading");
-      setIsLoading(true);
+      console.log("⏳ Category selected – clearing stage, loading");
       setCurrentMedia(null);
+      setIsLoading(true);
     });
 
-    // Media arrives
     socketInstance.on("displayMedia", (mediaData) => {
       console.log("🖥️ Display media received:", mediaData);
-      if (mediaData) {
-        console.log(`✅ Media has en: ${!!mediaData.media?.en}, ar: ${!!mediaData.media?.ar}`);
-      }
-      setCurrentMedia(mediaData);
+      const next = mediaData == null ? null : normalizeDisplayMediaPayload(mediaData);
+      setCurrentMedia(next);
       setIsLoading(false);
     });
 

@@ -64,27 +64,54 @@ export default function DynamicBackground({ language = "en" }) {
       {backgrounds.length > 0 ? (
         backgrounds.map((bg, index) => {
           const isAr = language === "ar";
-          const src = isAr ? (bg.imageUrlAr || bg.imageUrl) : (bg.imageUrlEn || bg.imageUrl);
+          // Try current language, fallback to other language, then to legacy imageUrl
+          const src = isAr 
+            ? (bg.imageUrlAr || bg.imageUrlEn || bg.imageUrl) 
+            : (bg.imageUrlEn || bg.imageUrlAr || bg.imageUrl);
+
+          const type = isAr
+            ? (bg.typeAr || bg.typeEn || "image")
+            : (bg.typeEn || bg.typeAr || "image");
 
           if (!src) return null;
+
+          const boxStyle = {
+            position: "absolute",
+            top: `${bg.position?.y || 0}%`,
+            left: `${bg.position?.x || 0}%`,
+            width: `${bg.size?.width || 100}%`,
+            height: `${bg.size?.height || 100}%`,
+            opacity: bg.opacity || 1,
+            transform: `rotate(${bg.rotation || 0}deg)`,
+            zIndex: bg.layer || index,
+            transition: "all 0.3s ease",
+            objectFit: "cover",
+          };
+
+          if (type === "video") {
+            return (
+              <Box
+                key={bg._id}
+                component="video"
+                src={src}
+                autoPlay
+                loop
+                muted
+                playsInline
+                sx={boxStyle}
+              />
+            );
+          }
 
           return (
             <Box
               key={bg._id}
               sx={{
-                position: "absolute",
-                top: `${bg.position?.y || 0}%`,
-                left: `${bg.position?.x || 0}%`,
-                width: `clamp(240px, ${bg.size?.width || 100}%, ${backgroundWidth})`,
-                height: `clamp(160px, ${bg.size?.height || 100}%, ${backgroundHeight})`,
+                ...boxStyle,
                 backgroundImage: `url(${src})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 backgroundRepeat: "no-repeat",
-                opacity: bg.opacity || 1,
-                transform: `rotate(${bg.rotation || 0}deg)`,
-                zIndex: bg.layer || index,
-                transition: "all 0.3s ease",
               }}
               role="img"
               aria-label={`Background: ${bg.title}`}

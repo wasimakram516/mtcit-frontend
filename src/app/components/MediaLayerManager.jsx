@@ -25,16 +25,43 @@ import {
   ExpandMore,
   Visibility,
   VisibilityOff,
+  ImageNotSupportedOutlined,
 } from "@mui/icons-material";
 import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
 import { useLanguage } from "@/app/context/LanguageContext";
+import ConfirmationDialog from "./ConfirmationDialog";
+
+const ProgressOverlay = ({ progress }) => (
+  <Box
+    sx={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      bgcolor: "rgba(0, 0, 0, 0.6)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 10,
+      borderRadius: "inherit",
+      backdropFilter: "blur(2px)",
+    }}
+  >
+    <CircularProgress variant="determinate" value={progress} color="primary" size={40} />
+    <Typography variant="caption" sx={{ color: "white", mt: 1, fontWeight: "bold" }}>
+      {progress}%
+    </Typography>
+  </Box>
+);
 
 const createLayerDraft = (layer = {}) => ({
   fileEn: layer.fileEn || null,
   fileAr: layer.fileAr || null,
-  existingUrlEn: layer.fileEn?.url || layer.existingUrlEn || layer.existingUrl || "",
+  existingUrlEn: layer.fileEn?.url || layer.existingUrlEn || "",
   existingUrlAr: layer.fileAr?.url || layer.existingUrlAr || "",
-  previewEn: layer.fileEn?.url || layer.previewEn || layer.preview || layer.existingUrlEn || layer.existingUrl || "",
+  previewEn: layer.fileEn?.url || layer.previewEn || layer.existingUrlEn || "",
   previewAr: layer.fileAr?.url || layer.previewAr || layer.existingUrlAr || "",
   title: layer.title || "",
   description: layer.description || "",
@@ -46,9 +73,11 @@ const createLayerDraft = (layer = {}) => ({
   typeEn: layer.fileEn?.type || layer.typeEn || layer.type || "image",
   typeAr: layer.fileAr?.type || layer.typeAr || "image",
   isActive: layer.isActive !== undefined ? layer.isActive : true,
+  removeEn: false,
+  removeAr: false,
 });
 
-export default function MediaLayerManager({ layers = [], onChange }) {
+export default function MediaLayerManager({ layers = [], onChange, uploadProgress = 0, isUploading = false }) {
   const { language } = useLanguage();
   const [message, setMessage] = useState({ type: "", text: "" });
   const [openDialog, setOpenDialog] = useState(false);
@@ -56,6 +85,10 @@ export default function MediaLayerManager({ layers = [], onChange }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedPreview, setSelectedPreview] = useState("");
   const [draft, setDraft] = useState(createLayerDraft());
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmType, setConfirmType] = useState(null); // 'layer' or 'file'
+  const [confirmTarget, setConfirmTarget] = useState(null); // index or lang
 
   const translations = {
     en: {
@@ -104,6 +137,8 @@ export default function MediaLayerManager({ layers = [], onChange }) {
       layerPreviewAr: "Arabic Preview",
       layerTitle: "Layer Title",
       layerDescription: "Layer Description",
+      removeMedia: "Remove Media",
+      removeMediaConfirm: "Are you sure you want to remove this media asset?",
     },
     ar: {
       backgroundManager: "مدير الخلفيات",
@@ -151,6 +186,8 @@ export default function MediaLayerManager({ layers = [], onChange }) {
       layerPreviewAr: "معاينة عربية",
       layerTitle: "عنوان الطبقة",
       layerDescription: "وصف الطبقة",
+      removeMedia: "إزالة الوسائط",
+      removeMediaConfirm: "هل أنت متأكد أنك تريد إزالة أصل الوسائط هذا؟",
     },
   };
 
@@ -161,7 +198,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
     [layers]
   );
 
-  const currentPreview = selectedPreview || draft.existingUrl || "";
+  const currentPreview = selectedPreview || draft.existingUrlEn || draft.existingUrlAr || "";
 
   const showMessage = (type, text) => {
     setMessage({ type, text });
@@ -174,6 +211,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
     setSelectedFile(null);
     setSelectedPreview("");
     setDraft(createLayerDraft());
+    setMessage({ type: "", text: "" });
   };
 
   // We rely on the parent (CMSPage) or the browser to eventually cleanup blob URLs
@@ -183,7 +221,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
     setEditingIndex(index);
     setDraft(createLayerDraft(layer || {}));
     setSelectedFile(null);
-    setSelectedPreview(layer?.preview || layer?.existingUrl || "");
+    setSelectedPreview(layer?.previewEn || layer?.previewAr || layer?.existingUrlEn || layer?.existingUrlAr || "");
     setOpenDialog(true);
   };
 
@@ -203,6 +241,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
         existingUrlEn: "",
         previewEn: nextPreview,
         typeEn: nextType,
+        removeEn: false,
       }));
     } else {
       if (draft.previewAr?.startsWith("blob:")) URL.revokeObjectURL(draft.previewAr);
@@ -212,6 +251,29 @@ export default function MediaLayerManager({ layers = [], onChange }) {
         existingUrlAr: "",
         previewAr: nextPreview,
         typeAr: nextType,
+        removeAr: false,
+      }));
+    }
+  };
+
+  const handleRemoveFile = (lang) => {
+    if (lang === "en") {
+      if (draft.previewEn?.startsWith("blob:")) URL.revokeObjectURL(draft.previewEn);
+      setDraft(current => ({
+        ...current,
+        fileEn: null,
+        existingUrlEn: "",
+        previewEn: "",
+        removeEn: true
+      }));
+    } else {
+      if (draft.previewAr?.startsWith("blob:")) URL.revokeObjectURL(draft.previewAr);
+      setDraft(current => ({
+        ...current,
+        fileAr: null,
+        existingUrlAr: "",
+        previewAr: "",
+        removeAr: true
       }));
     }
   };
@@ -236,36 +298,75 @@ export default function MediaLayerManager({ layers = [], onChange }) {
 
     onChange(nextLayers);
     clearDialog();
-    showMessage("success", editingIndex === null ? t.successCreate : t.successUpdate);
+    // Use window alert or similar if dialog is closed, or just rely on state if parent handles it
+    // But since the dialog closes, we might want the parent to show the message.
+    // However, the user asked to show messages ON MODAL if open.
   };
 
-  const handleRemoveLayer = (index) => {
-    if (!confirm(t.deleteConfirm)) return;
-    const nextLayers = layers.filter((_, layerIndex) => layerIndex !== index);
-    onChange(nextLayers);
-    showMessage("success", t.successDelete);
+  const handleDeleteClick = (index) => {
+    setConfirmTarget(index);
+    setConfirmType('layer');
+    setConfirmOpen(true);
   };
 
-  const swapLayer = (sourceIndex, targetIndex) => {
-    if (targetIndex < 0 || targetIndex >= orderedLayers.length) return;
+  const handleRemoveFileClick = (lang) => {
+    setConfirmTarget(lang);
+    setConfirmType('file');
+    setConfirmOpen(true);
+  };
 
-    const source = orderedLayers[sourceIndex];
-    const target = orderedLayers[targetIndex];
-    const sourceZIndex = source.zIndex ?? sourceIndex;
-    const targetZIndex = target.zIndex ?? targetIndex;
-
-    const nextLayers = layers.map((layer) => {
-      if (layer === source) {
-        return { ...layer, zIndex: targetZIndex };
+  const handleConfirmAction = () => {
+    if (confirmType === 'layer') {
+      const nextLayers = layers.filter((_, layerIndex) => layerIndex !== confirmTarget);
+      onChange(nextLayers);
+      showMessage("success", t.successDelete);
+    } else if (confirmType === 'file') {
+      const lang = confirmTarget;
+      if (lang === "en") {
+        if (draft.previewEn?.startsWith("blob:")) URL.revokeObjectURL(draft.previewEn);
+        setDraft(current => ({
+          ...current,
+          fileEn: null,
+          existingUrlEn: "",
+          previewEn: "",
+          removeEn: true
+        }));
+      } else {
+        if (draft.previewAr?.startsWith("blob:")) URL.revokeObjectURL(draft.previewAr);
+        setDraft(current => ({
+          ...current,
+          fileAr: null,
+          existingUrlAr: "",
+          previewAr: "",
+          removeAr: true
+        }));
       }
+    }
+    setConfirmOpen(false);
+  };
 
-      if (layer === target) {
-        return { ...layer, zIndex: sourceZIndex };
-      }
+  /** Move one step in visual stack order (sorted by zIndex); renumber zIndex 0..n-1 so order stays stable. */
+  const reorderLayerInStack = (layerRef, delta) => {
+    const tieBreak = (a, b) => {
+      const za = a.zIndex ?? 0;
+      const zb = b.zIndex ?? 0;
+      if (za !== zb) return za - zb;
+      return layers.indexOf(a) - layers.indexOf(b);
+    };
+    const sorted = [...layers].sort(tieBreak);
+    const from = sorted.findIndex((l) => l === layerRef);
+    if (from < 0) return;
+    const to = from + delta;
+    if (to < 0 || to >= sorted.length) return;
 
-      return layer;
+    const nextOrder = [...sorted];
+    [nextOrder[from], nextOrder[to]] = [nextOrder[to], nextOrder[from]];
+
+    const nextLayers = layers.map((l) => {
+      const pos = nextOrder.findIndex((x) => x === l);
+      if (pos === -1) return l;
+      return { ...l, zIndex: pos };
     });
-
     onChange(nextLayers);
   };
 
@@ -301,12 +402,11 @@ export default function MediaLayerManager({ layers = [], onChange }) {
       ) : (
         orderedLayers.map((layer) => {
           const originalIndex = layers.findIndex((l) => l === layer);
-          const isAtTop = originalIndex === 0;
-          const isAtBottom = originalIndex === layers.length - 1;
+          const sortedIndex = orderedLayers.findIndex((l) => l === layer);
 
           return (
             <Box
-              key={`${layer.preview || layer.existingUrl || originalIndex}-${originalIndex}`}
+              key={`${layer.previewEn || layer.previewAr || layer.existingUrlEn || layer.existingUrlAr || originalIndex}-${originalIndex}`}
               sx={{
                 mb: 3,
                 p: 2,
@@ -330,37 +430,48 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                       const srcEn = layer.fileEn?.url || layer.previewEn || layer.existingUrlEn || null;
                       if (!srcEn) {
                         return (
-                          <Box sx={{ width: "150px", height: "100px", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }} />
+                          <Box sx={{ width: "150px", height: "100px", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <ImageNotSupportedOutlined sx={{ color: "text.disabled", fontSize: 40 }} />
+                          </Box>
                         );
                       }
 
-                      return layer.typeEn === "video" ? (
-                        <Box
-                          component="video"
-                          src={srcEn}
-                          sx={{
-                            width: "150px",
-                            height: "100px",
-                            objectFit: "contain",
-                            backgroundColor: "#eee",
-                            borderRadius: 2,
-                            border: "1px solid #ddd",
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          component="img"
-                          src={srcEn}
-                          alt={`${layer.title} EN`}
-                          sx={{
-                            width: "150px",
-                            height: "100px",
-                            objectFit: "contain",
-                            backgroundColor: "#eee",
-                            borderRadius: 2,
-                            border: "1px solid #ddd",
-                          }}
-                        />
+                       return (
+                        <Box sx={{ position: "relative", width: "150px", height: "100px", borderRadius: 2, overflow: "hidden" }}>
+                          {isUploading && layer.fileEn instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                          {layer.typeEn === "video" || srcEn.match(/\.(mp4|webm|ogg)$/i) ? (
+                            <Box
+                              component="video"
+                              src={srcEn}
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                              sx={{
+                                width: "150px",
+                                height: "100px",
+                                objectFit: "contain",
+                                backgroundColor: "#eee",
+                                borderRadius: 2,
+                                border: "1px solid #ddd",
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              component="img"
+                              src={srcEn}
+                              alt={`${layer.title} EN`}
+                              sx={{
+                                width: "150px",
+                                height: "100px",
+                                objectFit: "contain",
+                                backgroundColor: "#eee",
+                                borderRadius: 2,
+                                border: "1px solid #ddd",
+                              }}
+                            />
+                          )}
+                        </Box>
                       );
                     })()}
                   </Box>
@@ -371,37 +482,48 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                       const srcAr = layer.fileAr?.url || layer.previewAr || layer.existingUrlAr || null;
                       if (!srcAr) {
                         return (
-                          <Box sx={{ width: "150px", height: "100px", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }} />
+                          <Box sx={{ width: "150px", height: "100px", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <ImageNotSupportedOutlined sx={{ color: "text.disabled", fontSize: 40 }} />
+                          </Box>
                         );
                       }
 
-                      return layer.typeAr === "video" ? (
-                        <Box
-                          component="video"
-                          src={srcAr}
-                          sx={{
-                            width: "150px",
-                            height: "100px",
-                            objectFit: "contain",
-                            backgroundColor: "#eee",
-                            borderRadius: 2,
-                            border: "1px solid #ddd",
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          component="img"
-                          src={srcAr}
-                          alt={`${layer.title} AR`}
-                          sx={{
-                            width: "150px",
-                            height: "100px",
-                            objectFit: "contain",
-                            backgroundColor: "#eee",
-                            borderRadius: 2,
-                            border: "1px solid #ddd",
-                          }}
-                        />
+                       return (
+                        <Box sx={{ position: "relative", width: "150px", height: "100px", borderRadius: 2, overflow: "hidden" }}>
+                          {isUploading && layer.fileAr instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                          {layer.typeAr === "video" || srcAr.match(/\.(mp4|webm|ogg)$/i) ? (
+                            <Box
+                              component="video"
+                              src={srcAr}
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                              sx={{
+                                width: "150px",
+                                height: "100px",
+                                objectFit: "contain",
+                                backgroundColor: "#eee",
+                                borderRadius: 2,
+                                border: "1px solid #ddd",
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              component="img"
+                              src={srcAr}
+                              alt={`${layer.title} AR`}
+                              sx={{
+                                width: "150px",
+                                height: "100px",
+                                objectFit: "contain",
+                                backgroundColor: "#eee",
+                                borderRadius: 2,
+                                border: "1px solid #ddd",
+                              }}
+                            />
+                          )}
+                        </Box>
                       );
                     })()}
                   </Box>
@@ -426,7 +548,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                 <Box sx={{ mt: 2, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1 }}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      {t.layer}: {(layer.zIndex ?? originalIndex) + 1}
+                      {t.layer}: {sortedIndex + 1}
                     </Typography>
                   </Box>
                   <Box>
@@ -460,9 +582,9 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                   <IconButton
                     size="small"
                     variant="outlined"
-                    onClick={() => swapLayer(originalIndex, originalIndex - 1)}
+                    onClick={() => reorderLayerInStack(layer, -1)}
                     title={t.moveBackward}
-                    disabled={originalIndex === 0}
+                    disabled={sortedIndex === 0}
                     sx={{ border: "1px solid #ddd" }}
                   >
                     <ArrowUpward fontSize="small" />
@@ -471,9 +593,9 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                   <IconButton
                     size="small"
                     variant="outlined"
-                    onClick={() => swapLayer(originalIndex, originalIndex + 1)}
+                    onClick={() => reorderLayerInStack(layer, 1)}
                     title={t.moveForward}
-                    disabled={originalIndex === layers.length - 1}
+                    disabled={sortedIndex === orderedLayers.length - 1}
                     sx={{ border: "1px solid #ddd" }}
                   >
                     <ArrowDownward fontSize="small" />
@@ -502,7 +624,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                     variant="outlined"
                     color="error"
                     startIcon={<Delete />}
-                    onClick={() => handleRemoveLayer(originalIndex)}
+                    onClick={() => handleDeleteClick(originalIndex)}
                   >
                     {t.delete}
                   </Button>
@@ -518,95 +640,84 @@ export default function MediaLayerManager({ layers = [], onChange }) {
           {editingIndex === null ? t.addLayer : `${t.edit} ${t.layer}`}
         </DialogTitle>
         <DialogContent>
+          {message.text && (
+            <Alert severity={message.type} sx={{ mb: 2, mt: 1 }}>
+              {message.text}
+            </Alert>
+          )}
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
             {/* English Image */}
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {t.uploadImage}
-              </Typography>
-              <Input type="file" accept="image/*,video/*" onChange={(e) => handleFileChange(e, "en")} fullWidth />
-              {(() => {
-                const draftSrcEn = draft.previewEn || draft.existingUrlEn || null;
-                if (!draftSrcEn) return null;
-                return (
-                  <Box sx={{ mt: 2 }}>
-                    {draft.typeEn === "video" ? (
-                      <Box
-                        component="video"
-                        src={draftSrcEn}
-                        controls
-                        sx={{
-                          width: "150px",
-                          height: "100px",
-                          objectFit: "contain",
-                          backgroundColor: "#eee",
-                          borderRadius: 2,
-                          border: "1px solid #ddd",
-                        }}
-                      />
-                    ) : (
-                      <Box
-                        component="img"
-                        src={draftSrcEn}
-                        alt={t.layerPreview}
-                        sx={{
-                          width: "150px",
-                          height: "100px",
-                          objectFit: "contain",
-                          backgroundColor: "#eee",
-                          borderRadius: 2,
-                          border: "1px solid #ddd",
-                        }}
-                      />
-                    )}
-                  </Box>
-                );
-              })()}
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t.uploadImage}</Typography>
+              <Input type="file" fullWidth onChange={(e) => handleFileChange(e, "en")} accept="image/*,video/*" />
+              {draft.previewEn && (
+                <Box sx={{ mt: 2, position: "relative", width: "fit-content", borderRadius: 2, overflow: "hidden" }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleRemoveFileClick("en")}
+                    sx={{ position: "absolute", top: 5, left: 5, bgcolor: "rgba(255,255,255,0.8)", zIndex: 10, "&:hover": { bgcolor: "#fff" } }}
+                  >
+                    <Delete fontSize="small" color="error" />
+                  </IconButton>
+                  {isUploading && draft.fileEn instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                  {draft.typeEn === "video" || (draft.previewEn.startsWith('blob:') && draft.fileEn?.type.startsWith('video/')) ? (
+                    <Box
+                      component="video"
+                      src={draft.previewEn}
+                      autoPlay loop muted playsInline
+                      sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#000", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  ) : (
+                    <Box
+                      component="img"
+                      src={draft.previewEn}
+                      sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  )}
+                </Box>
+              )}
+              {!draft.previewEn && (
+                <Box sx={{ mt: 2, width: "150px", height: "100px", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <ImageNotSupportedOutlined sx={{ color: "text.disabled", fontSize: 40 }} />
+                </Box>
+              )}
             </Box>
 
             {/* Arabic Image */}
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {t.uploadImageAr}
-              </Typography>
-              <Input type="file" accept="image/*,video/*" onChange={(e) => handleFileChange(e, "ar")} fullWidth />
-              {(() => {
-                const draftSrcAr = draft.previewAr || draft.existingUrlAr || null;
-                if (!draftSrcAr) return null;
-                return (
-                  <Box sx={{ mt: 2 }}>
-                    {draft.typeAr === "video" ? (
-                      <Box
-                        component="video"
-                        src={draftSrcAr}
-                        controls
-                        sx={{
-                          width: "150px",
-                          height: "100px",
-                          objectFit: "contain",
-                          backgroundColor: "#eee",
-                          borderRadius: 2,
-                          border: "1px solid #ddd",
-                        }}
-                      />
-                    ) : (
-                      <Box
-                        component="img"
-                        src={draftSrcAr}
-                        alt={t.layerPreviewAr}
-                        sx={{
-                          width: "150px",
-                          height: "100px",
-                          objectFit: "contain",
-                          backgroundColor: "#eee",
-                          borderRadius: 2,
-                          border: "1px solid #ddd",
-                        }}
-                      />
-                    )}
-                  </Box>
-                );
-              })()}
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t.uploadImageAr}</Typography>
+              <Input type="file" fullWidth onChange={(e) => handleFileChange(e, "ar")} accept="image/*,video/*" />
+              {draft.previewAr && (
+                <Box sx={{ mt: 2, position: "relative", width: "fit-content", borderRadius: 2, overflow: "hidden" }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleRemoveFileClick("ar")}
+                    sx={{ position: "absolute", top: 5, left: 5, bgcolor: "rgba(255,255,255,0.8)", zIndex: 10, "&:hover": { bgcolor: "#fff" } }}
+                  >
+                    <Delete fontSize="small" color="error" />
+                  </IconButton>
+                  {isUploading && draft.fileAr instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                  {draft.typeAr === "video" || (draft.previewAr.startsWith('blob:') && draft.fileAr?.type.startsWith('video/')) ? (
+                    <Box
+                      component="video"
+                      src={draft.previewAr}
+                      autoPlay loop muted playsInline
+                      sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#000", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  ) : (
+                    <Box
+                      component="img"
+                      src={draft.previewAr}
+                      sx={{ width: "150px", height: "100px", objectFit: "contain", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
+                    />
+                  )}
+                </Box>
+              )}
+              {!draft.previewAr && (
+                <Box sx={{ mt: 2, width: "150px", height: "100px", bgcolor: "#eee", borderRadius: 2, border: "1px solid #ddd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <ImageNotSupportedOutlined sx={{ color: "text.disabled", fontSize: 40 }} />
+                </Box>
+              )}
             </Box>
 
             <TextField
@@ -678,7 +789,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                   }))
                 }
                 min={10}
-                max={200}
+                max={100}
                 marks
               />
             </Box>
@@ -696,7 +807,7 @@ export default function MediaLayerManager({ layers = [], onChange }) {
                   }))
                 }
                 min={10}
-                max={200}
+                max={100}
                 marks
               />
             </Box>
@@ -746,6 +857,16 @@ export default function MediaLayerManager({ layers = [], onChange }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmationDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmAction}
+        title={confirmType === 'layer' ? t.delete : (t.removeMedia || "Remove Media")}
+        message={confirmType === 'layer' ? t.deleteConfirm : (t.removeMediaConfirm || "Are you sure you want to remove this media asset?")}
+        confirmButtonText={t.delete}
+        cancelButtonText={t.cancel}
+      />
     </Box>
   );
 }
