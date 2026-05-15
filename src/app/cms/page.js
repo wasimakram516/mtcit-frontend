@@ -774,13 +774,26 @@ export default function CMSPage() {
           allowScrollButtonsMobile
           sx={{ '& .MuiTabs-flexContainer': { justifyContent: { sm: 'center' } } }}
         >
-          <Tab label={t.mediaManager} />
-          <Tab label={t.categoryManager} />
           <Tab label={t.backgroundManager} />
+          <Tab label={t.categoryManager} />
+          <Tab label={t.mediaManager} />
         </Tabs>
       </Box>
 
       {activeTab === 0 && (
+        <Box sx={{ mt: 3, maxWidth: "900px", mx: "auto" }}>
+          <CMSBackgroundManager />
+        </Box>
+      )}
+
+      {activeTab === 1 && (
+        <Box sx={{ mt: 3, maxWidth: "1000px", mx: "auto" }}>
+          <CategoryManager onChange={syncMediaAndCategories} />
+        </Box>
+      )}
+
+
+      {activeTab === 2 && (
         <Box sx={{ mt: 3, maxWidth: "900px", mx: "auto" }}>
           <Box
             sx={{
@@ -986,18 +999,6 @@ export default function CMSPage() {
               })
             )}
           </Box>
-        </Box>
-      )}
-
-      {activeTab === 1 && (
-        <Box sx={{ mt: 3, maxWidth: "1000px", mx: "auto" }}>
-          <CategoryManager onChange={syncMediaAndCategories} />
-        </Box>
-      )}
-
-      {activeTab === 2 && (
-        <Box sx={{ mt: 3, maxWidth: "900px", mx: "auto" }}>
-          <CMSBackgroundManager />
         </Box>
       )}
 
