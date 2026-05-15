@@ -12,12 +12,12 @@ import MapEmbedExperience from "@/app/components/MapEmbedExperience";
 export default function Controller() {
   const {
     sendCategorySelection,
-    sendSelectMedia,
     sendLanguageChange,
     categoryOptions,
     categoryTree,
     sendCarbonMode,
     connected,
+    displayMedia,
     leafMedia,
     currentExperience,
     currentExperienceState,
@@ -31,8 +31,7 @@ export default function Controller() {
   const [selected, setSelected] = useState({ category: "", subcategory: "" });
   const [selectedPath, setSelectedPath] = useState([]);
   const [openCategoryNode, setOpenCategoryNode] = useState(null);
-  const [selectedLeafId, setSelectedLeafId] = useState(null);
-  const [selectedMediaSlug, setSelectedMediaSlug] = useState(null);
+  const [mediaForLeaf, setMediaForLeaf] = useState(null);
 
   const isArabic = language === "ar";
 
@@ -292,16 +291,6 @@ export default function Controller() {
   };
 
   useEffect(() => {
-    setSelectedMediaSlug(null);
-  }, [selectedLeafId]);
-
-  useEffect(() => {
-    if (!leafMedia?.items?.length || !selectedMediaSlug) return;
-    const stillThere = leafMedia.items.some((i) => i.slug === selectedMediaSlug);
-    if (!stillThere) setSelectedMediaSlug(null);
-  }, [leafMedia, selectedMediaSlug]);
-
-  useEffect(() => {
     if (connected) {
       sendCarbonMode(false, 0);
     }
@@ -309,11 +298,13 @@ export default function Controller() {
 
   useEffect(() => {
     if (!selected.category && !selected.subcategory) return;
+
     const timer = setTimeout(() => {
       setSelected({ category: "", subcategory: "" });
       setOpenCategory(null);
       sendCategorySelection("", "", language);
     }, 90000);
+
     return () => clearTimeout(timer);
   }, [selected, sendCategorySelection, language]);
 
@@ -437,12 +428,10 @@ export default function Controller() {
 
       if (node.children && node.children.length) {
         setOpenCategoryNode(nodeId);
-        setSelectedLeafId(null);
         return;
       }
 
       setSelectedPath(path);
-      setSelectedLeafId(nodeId);
       setSelected({ category: node?.name?.en || category, subcategory: "" });
       sendCategorySelection(null, null, language, path);
       return;
@@ -566,10 +555,10 @@ export default function Controller() {
           background: "linear-gradient(to top, rgba(93, 201, 108, 0.95) 0%, rgba(93, 201, 108, 0) 80%)",
           maskImage: "url('/omanCity.webp')",
           WebkitMaskImage: "url('/omanCity.webp')",
-          maskSize: "100% 100%",
-          WebkitMaskSize: "100% 100%",
-          maskPosition: "bottom center",
-          WebkitMaskPosition: "bottom center",
+          maskSize: "100% auto",
+          WebkitMaskSize: "100% auto",
+          maskPosition: "bottom left",
+          WebkitMaskPosition: "bottom left",
           maskRepeat: "no-repeat",
           WebkitMaskRepeat: "no-repeat",
           zIndex: 2,
@@ -681,15 +670,6 @@ export default function Controller() {
           const parentNode =
             parentPath.length > 0 ? findNodeById(categoryTree, parentPath[parentPath.length - 1]) : null;
 
-          const leafChildMatch =
-            selectedLeafId && node.children
-              ? node.children.find((c) => String(c._id || c.id) === String(selectedLeafId))
-              : null;
-          const slugGridActive =
-            Boolean(leafChildMatch) &&
-            leafMedia &&
-            String(leafMedia.leafId) === String(selectedLeafId);
-
           return (
             <Box
               sx={{
@@ -713,23 +693,6 @@ export default function Controller() {
                 <Button
                   variant="contained"
                   onClick={() => {
-                    setSelectedMediaSlug(null);
-
-                    const drillNode = findNodeById(categoryTree, openCategoryNode);
-                    const onSlugPicker =
-                      selectedLeafId &&
-                      drillNode?.children?.some(
-                        (c) => String(c._id || c.id) === String(selectedLeafId)
-                      ) &&
-                      leafMedia &&
-                      String(leafMedia.leafId) === String(selectedLeafId);
-
-                    if (onSlugPicker) {
-                      setSelectedLeafId(null);
-                      return;
-                    }
-
-                    setSelectedLeafId(null);
                     if (parentNode) {
                       setOpenCategoryNode(parentNode._id);
                     } else {
@@ -769,7 +732,7 @@ export default function Controller() {
                   fontFamily: getMotionFontFamily(),
                 }}
               >
-                {slugGridActive ? getNodeLabel(leafChildMatch) : getNodeLabel(node)}
+                {getNodeLabel(node)}
               </Typography>
               )}
 
@@ -832,117 +795,50 @@ export default function Controller() {
                           key="no-leaf-media"
                           dir={isArabic ? "rtl" : "ltr"}
                           sx={{
-                            color: "rgba(248,252,246,0.9)",
-                            fontSize: "1rem",
-                            maxWidth: "14rem",
-                            textAlign: "center",
-                            fontFamily: getMotionFontFamily(),
+                            display: "block",
+                            width: "auto",
+                            height: "3.2rem",
+                            maxWidth: "4rem",
+                            maxHeight: "3.6rem",
+                            mb: 1,
+                            objectFit: "contain",
+                            borderRadius: "0.5rem",
                           }}
-                        >
-                          {translations[language].noMediaForCategory}
-                        </Typography>
-                      );
-                    }
-
-                    return leafMedia.items.map((row) => {
-                      const active = selectedMediaSlug === row.slug;
-                      return (
-                        <motion.div
-                          key={`media-${row.slug}`}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          animate={active ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
-                          transition={{ duration: 0.5 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            sendSelectMedia(row.slug, language);
-                            setSelectedMediaSlug(row.slug);
-                          }}
-                          style={{
-                            ...bubbleBase,
-                            width: "10rem",
-                            height: "10rem",
-                            fontSize: "1rem",
-                            zIndex: 61,
-                            cursor: "pointer",
-                            position: "relative",
-                            backgroundImage: active
-                              ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
-                              : bubbleBase.backgroundImage,
-                            boxShadow: active ? "0 0 25px rgba(28, 147, 45, 0.65)" : bubbleBase.boxShadow,
-                          }}
-                        >
-                          <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
-                            {row.title}
-                          </Typography>
-                          {active && (
-                            <Box
-                              sx={{
-                                position: "absolute",
-                                top: 6,
-                                right: 6,
-                                bgcolor: "rgba(0,0,0,0.35)",
-                                borderRadius: "50%",
-                                p: 0.25,
-                                display: "flex",
-                              }}
-                            >
-                              <CheckIcon sx={{ fontSize: 22, color: "#F8FCF6" }} />
-                            </Box>
-                          )}
-                        </motion.div>
-                      );
-                    });
-                  }
-
-                  return node.children.map((child) => {
-                    const hasChildren = child.children && child.children.length > 0;
-                    const isSelectedLeaf = selectedLeafId === child._id && !hasChildren;
-
-                    return (
-                      <motion.div
-                        key={child._id || child.id}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        animate={isSelectedLeaf ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
-                        transition={{ duration: 0.5 }}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (hasChildren) {
-                            setOpenCategoryNode(child._id);
-                            setSelectedLeafId(null);
-                          } else {
-                            handleSubBubbleClick(node.name?.en || "", child.name?.en || child.label, child._id || child.id);
-                          }
-                        }}
-                        style={{
-                          ...bubbleBase,
-                          width: "10rem",
-                          height: "10rem",
-                          fontSize: "1rem",
-                          zIndex: 61,
-                          backgroundImage: isSelectedLeaf
-                            ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
-                            : bubbleBase.backgroundImage,
-                          boxShadow: isSelectedLeaf
-                            ? "0 0 25px rgba(28, 147, 45, 0.65)"
-                            : bubbleBase.boxShadow,
-                        }}
-                      >
-                        {child.icon && (
-                          <Box
-                            component="img"
-                            src={child.icon}
-                            sx={{ width: "4rem", height: "4rem", mb: 1, objectFit: "contain", borderRadius: "0.5rem" }}
-                          />
-                        )}
-                        <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
-                          {getNodeLabel(child)}
-                        </Typography>
-                      </motion.div>
-                    );
-                  });
-                })()}
+                        />
+                      )}
+                            <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
+                              {getNodeLabel(child)}
+                            </Typography>
+                            {(() => {
+                              const leafId = String(selectedPath?.[selectedPath.length - 1] || "");
+                              const childId = String(child._id || child.id || "");
+                              const isActiveChild =
+                                (leafId && leafId === childId) ||
+                                (selected.category && selected.subcategory && selected.category === (node.name?.en || "") && selected.subcategory === (child.name?.en || child.label || ""));
+                              return isActiveChild ? (
+                                <Box
+                                  sx={{
+                                    position: "absolute",
+                                    top: 8,
+                                    right: 8,
+                                    width: 26,
+                                    height: 26,
+                                    borderRadius: "999px",
+                                    bgcolor: "rgba(248, 252, 246, 0.95)",
+                                    color: "#1C932D",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
+                                  }}
+                                >
+                                  <CheckIcon sx={{ fontSize: 16 }} />
+                                </Box>
+                              ) : null;
+                            })()}
+                    </motion.div>
+                  );
+                })}
               </Box>
             </Box>
           );

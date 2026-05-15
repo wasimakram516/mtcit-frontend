@@ -118,7 +118,7 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
       save: "Save",
       deleteConfirm: "Are you sure you want to delete this layer?",
       titleRequired: "Title is required",
-      imageRequired: "Image is required for new layers",
+      imageRequired: "At least one English or Arabic asset is required",
       successDelete: "Layer deleted",
       successCreate: "Layer created",
       successUpdate: "Layer updated",
@@ -131,10 +131,10 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
       layerManagerHint: "Add one or more positioned images for this media item.",
       addLayer: "Add Layer",
       removeLayer: "Remove Layer",
-      uploadImage: "Upload English Image",
-      uploadImageAr: "Upload Arabic Image",
-      layerPreview: "English Preview",
-      layerPreviewAr: "Arabic Preview",
+      uploadImage: "Add English asset",
+      uploadImageAr: "Add Arabic asset",
+      layerPreview: "English asset preview",
+      layerPreviewAr: "Arabic asset preview",
       layerTitle: "Layer Title",
       layerDescription: "Layer Description",
       removeMedia: "Remove Media",
@@ -167,7 +167,7 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
       save: "حفظ",
       deleteConfirm: "هل أنت متأكد أنك تريد حذف هذه الطبقة؟",
       titleRequired: "العنوان مطلوب",
-      imageRequired: "الصورة مطلوبة للطبقات الجديدة",
+      imageRequired: "مطلوب وسيط إنجليزي أو عربي واحد على الأقل",
       successDelete: "تم حذف الطبقة",
       successCreate: "تم إنشاء الطبقة",
       successUpdate: "تم تحديث الطبقة",
@@ -180,10 +180,10 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
       layerManagerHint: "أضف صورة أو أكثر يمكن وضعها داخل هذا العنصر.",
       addLayer: "إضافة طبقة",
       removeLayer: "إزالة الطبقة",
-      uploadImage: "تحميل الصورة الإنجليزية",
-      uploadImageAr: "تحميل الصورة العربية",
-      layerPreview: "معاينة إنجليزية",
-      layerPreviewAr: "معاينة عربية",
+      uploadImage: "إضافة وسيط إنجليزي",
+      uploadImageAr: "إضافة وسيط عربي",
+      layerPreview: "معاينة الوسيط الإنجليزي",
+      layerPreviewAr: "معاينة الوسيط العربي",
       layerTitle: "عنوان الطبقة",
       layerDescription: "وصف الطبقة",
       removeMedia: "إزالة الوسائط",
@@ -278,15 +278,36 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
     }
   };
 
+  const normalizeLayerDraft = (raw) => {
+    const urlFromFile = (f) =>
+      f && typeof f === "object" && !(f instanceof File) ? f.url || "" : "";
+    const previewUrl = (p) => (p && !String(p).startsWith("blob:") ? String(p) : "");
+    return {
+      ...raw,
+      existingUrlEn:
+        raw.existingUrlEn || urlFromFile(raw.fileEn) || previewUrl(raw.previewEn) || "",
+      existingUrlAr:
+        raw.existingUrlAr || urlFromFile(raw.fileAr) || previewUrl(raw.previewAr) || "",
+      title: String(raw.title ?? "").trim(),
+      description: String(raw.description ?? "").trim(),
+    };
+  };
+
   const handleSaveLayer = () => {
-    if (!draft.previewEn && !draft.previewAr && !draft.existingUrlEn && !draft.existingUrlAr) {
+    const normalized = normalizeLayerDraft(draft);
+    if (
+      !normalized.previewEn &&
+      !normalized.previewAr &&
+      !normalized.existingUrlEn &&
+      !normalized.existingUrlAr
+    ) {
       showMessage("error", t.imageRequired);
       return;
     }
 
     const nextLayer = {
-      ...draft,
-      zIndex: editingIndex === null ? orderedLayers.length : draft.zIndex ?? orderedLayers.length,
+      ...normalized,
+      zIndex: editingIndex === null ? orderedLayers.length : normalized.zIndex ?? orderedLayers.length,
     };
 
     const nextLayers = [...layers];
@@ -460,7 +481,7 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
                             <Box
                               component="img"
                               src={srcEn}
-                              alt={`${layer.title} EN`}
+                              alt={`${t.layer} ${originalIndex + 1} EN`}
                               sx={{
                                 width: "150px",
                                 height: "100px",
@@ -512,7 +533,7 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
                             <Box
                               component="img"
                               src={srcAr}
-                              alt={`${layer.title} AR`}
+                              alt={`${t.layer} ${originalIndex + 1} AR`}
                               sx={{
                                 width: "150px",
                                 height: "100px",
@@ -532,18 +553,13 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
 
               <Box sx={{ flex: 1 }}>
                 <Typography variant="subtitle1" fontWeight="bold">
-                  {layer.title || `${t.layer} #${originalIndex + 1}`}
+                  {`${t.layer} #${originalIndex + 1}`}
                   {layer.isActive === false && (
                     <Typography component="span" variant="caption" color="error" sx={{ ml: 1, fontWeight: "normal" }}>
                       (Disabled)
                     </Typography>
                   )}
                 </Typography>
-                {layer.description && (
-                  <Typography variant="body2" color="text.secondary">
-                    {layer.description}
-                  </Typography>
-                )}
 
                 <Box sx={{ mt: 2, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1 }}>
                   <Box>
@@ -719,26 +735,6 @@ export default function MediaLayerManager({ layers = [], onChange, uploadProgres
                 </Box>
               )}
             </Box>
-
-            <TextField
-              label={t.layerTitle}
-              fullWidth
-              value={draft.title}
-              onChange={(e) =>
-                setDraft((current) => ({ ...current, title: e.target.value }))
-              }
-            />
-
-            <TextField
-              label={t.layerDescription}
-              fullWidth
-              multiline
-              rows={2}
-              value={draft.description}
-              onChange={(e) =>
-                setDraft((current) => ({ ...current, description: e.target.value }))
-              }
-            />
 
             <Box>
               <Typography variant="body2">

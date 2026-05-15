@@ -8,6 +8,7 @@ export default function useWebSocketController() {
   const [categoryOptions, setCategoryOptions] = useState({});
   const [categoryTree, setCategoryTree] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [displayMedia, setDisplayMedia] = useState(null);
   const [leafMedia, setLeafMedia] = useState(null);
   const [currentExperience, setCurrentExperience] = useState(null);
   const [currentExperienceState, setCurrentExperienceState] = useState(null);
@@ -63,10 +64,25 @@ export default function useWebSocketController() {
       console.log("experienceStateChanged", payload);
       setCurrentExperienceState(payload || null);
     });
+    
+    socketInstance.on("displayMedia", (media) => {
+      console.log("🎬 Received display media for selected leaf", media);
+      setDisplayMedia(media);
+    });
+
+    // Listen for category reorder event from CMS to refresh tree
+    const handleCategoryReorder = () => {
+      console.log("🔄 Category reordered in CMS, requesting refresh");
+      socketInstance.emit("getCategoryOptions");
+    };
+    window.addEventListener("categoryReordered", handleCategoryReorder);
 
     setSocket(socketInstance);
 
-    return () => socketInstance.disconnect();
+    return () => {
+      window.removeEventListener("categoryReordered", handleCategoryReorder);
+      socketInstance.disconnect();
+    };
   }, []);
 
   const sendCategorySelection = useCallback((category, subcategory, language, categoryPath) => {
@@ -78,16 +94,9 @@ export default function useWebSocketController() {
     }
   }, [socket]);
 
-  const sendSelectMedia = useCallback((slug, language = "en") => {
-    if (socket && slug) {
-      socket.emit("selectMedia", { slug, language });
-    }
-  }, [socket]);
-
   const sendLanguageChange = useCallback((language) => {
-    if (socket) {
-      socket.emit("changeLanguage", language);
-    }
+    if (!socket) return;
+    socket.emit("changeLanguage", language);
   }, [socket]);
 
   const sendCarbonMode = useCallback((active, value) => {
@@ -111,10 +120,10 @@ export default function useWebSocketController() {
   return {
     connected,
     sendCategorySelection,
-    sendSelectMedia,
     sendLanguageChange,
     categoryOptions,
     categoryTree,
+    displayMedia,
     leafMedia,
     currentExperience,
     currentExperienceState,

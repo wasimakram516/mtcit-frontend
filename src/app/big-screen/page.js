@@ -3,10 +3,10 @@ import { useRouter } from "next/navigation";
 import { Box, Typography, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import useWebSocketBigScreen from "@/hooks/useWebSocketBigScreen";
-import { FourSquare } from "react-loading-indicators";
 import { motion } from "framer-motion";
 import CloudsBackground from "@/app/components/CloudsBackground";
 import DynamicBackground from "../components/DynamicBackground";
+import BackgroundSlideshow from "@/app/components/BackgroundSlideshow";
 import StrategyForecastExperience from "@/app/components/StrategyForecastExperience";
 import ElectricVehiclesExperience from "@/app/components/ElectricVehiclesExperience";
 import MapEmbedExperience from "@/app/components/MapEmbedExperience";
@@ -28,16 +28,12 @@ export default function BigScreenPage() {
     currentMedia,
     currentExperience,
     currentExperienceState,
-    isLoading,
     currentLanguage,
     allMedia,
     carbonActive,
     carbonLevel,
     categoryTree,
   } = useWebSocketBigScreen();
-
-  /** Full-stage loader while controller is changing category (isLoading true). Slug-only updates set isLoading false without flashing this. */
-  const showBlockingLoader = isLoading;
 
   const getCarbonColor = (value) => {
     if (value >= 90) return "#0a1f16"; // near-black greenish
@@ -81,9 +77,7 @@ export default function BigScreenPage() {
     return "";
   };
 
-  const currentMediaLayers = [...(currentMedia?.layers || [])].sort(
-    (first, second) => (first.zIndex || 0) - (second.zIndex || 0)
-  );
+  const backgroundSlides = currentMedia?.layers || [];
 
   const stageAspectRatio = "7 / 3";
   const stageWidth = "min(98vw, calc(92vh * 7 / 3))";
@@ -92,7 +86,6 @@ export default function BigScreenPage() {
   const logoSize = "clamp(72px, 5vw, 160px)";
   const mediaMaxWidth = "clamp(420px, 72vw, 2200px)";
   const mediaMaxHeight = "clamp(260px, 52vh, 1400px)";
-  const coverMaxHeight = "clamp(240px, 72vh, 1500px)";
   const titleSize = "clamp(1.75rem, 2.4vw, 4rem)";
   const subtitleSize = "clamp(1.2rem, 1.8vw, 3rem)";
 
@@ -183,7 +176,7 @@ export default function BigScreenPage() {
         }}
       >
         {/* Global Custom Background Fallback / Carbon Mode — bottom of stage stack */}
-        {(carbonActive || !currentMedia || currentMediaLayers.length === 0) && (
+        {(carbonActive || !currentMedia || backgroundSlides.length === 0) && (
           <Box
             sx={{
               position: "absolute",
@@ -196,62 +189,15 @@ export default function BigScreenPage() {
         )}
 
         {/* Media-Specific Background Layers — above fallback, below foreground */}
-        {!carbonActive && currentMedia && currentMediaLayers.length > 0 && (
+        {!carbonActive && currentMedia && backgroundSlides.length > 0 && (
           <Box
             sx={{
               position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
+              inset: 0,
               zIndex: zStageMediaBgLayers,
-              backgroundColor: "#fff",
             }}
           >
-            {currentMediaLayers.map((layer, index) => {
-              const isAr = currentLanguage === "ar";
-              const prefObj = isAr ? layer.fileAr : layer.fileEn;
-              const prefUrl = prefObj?.url;
-
-              const fallbackObj = isAr ? layer.fileEn : layer.fileAr;
-              const fallbackUrl = fallbackObj?.url;
-
-              let src = null;
-              let type = "image";
-
-              if (prefUrl) {
-                src = prefUrl;
-                type = prefObj?.type || (isAr ? layer.typeAr : layer.typeEn) || layer.type || "image";
-              } else if (fallbackUrl) {
-                src = fallbackUrl;
-                type = fallbackObj?.type || (isAr ? layer.typeEn : layer.typeAr) || layer.type || "image";
-              }
-
-              if (!src) return null;
-
-              return (
-                <Box
-                  key={`${src}-${index}`}
-                  component={type === "video" ? "video" : "img"}
-                  src={src}
-                  autoPlay={type === "video"}
-                  muted={type === "video"}
-                  loop={type === "video"}
-                  alt={`Media Layer ${index + 1}`}
-                  sx={{
-                    position: "absolute",
-                    top: `${layer.position?.y || 0}%`,
-                    left: `${layer.position?.x || 0}%`,
-                    width: `clamp(220px, ${layer.size?.width || 100}%, 2200px)`,
-                    height: `clamp(160px, ${layer.size?.height || 100}%, 1400px)`,
-                    objectFit: "cover",
-                    opacity: layer.opacity ?? 1,
-                    transform: `rotate(${layer.rotation || 0}deg)`,
-                    zIndex: layer.zIndex ?? index + 1,
-                  }}
-                />
-              );
-            })}
+            <BackgroundSlideshow slides={backgroundSlides} language={currentLanguage} />
           </Box>
         )}
         
@@ -356,51 +302,6 @@ export default function BigScreenPage() {
           }}
         >
 
-
-          {showBlockingLoader && (
-            <Box sx={{ zIndex: 2 }}>
-              <FourSquare
-                color={["#32cd32", "#96D8EA", "#cd32cd", "#cd8032"]}
-                size="large"
-              />
-            </Box>
-          )}
-
-          {/* Idle cover — shown when no media is selected */}
-          {!showBlockingLoader && !currentMedia && !currentExperience && (
-            <Box sx={{ position: "relative", width: "100%", height: "90%" }}>
-              <Box
-                component="img"
-                src={currentLanguage === "en" ? "/CoverEn.gif" : "/CoverAr.gif"}
-                alt="Display Image"
-                sx={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  maxHeight: coverMaxHeight,
-                }}
-              />
-            </Box>
-          )}
-
-          {!showBlockingLoader && currentExperience && (
-            <Box
-              sx={{
-                width: "90%",
-                height: "90%",
-                maxWidth: "clamp(640px, 90%, 2400px)",
-                maxHeight: "clamp(360px, 90%, 1400px)",
-                overflow: "hidden",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                px: "clamp(8px, 0.8vw, 18px)",
-                py: "clamp(8px, 0.8vh, 18px)",
-              }}
-            >
-              {renderExperience()}
-            </Box>
-          )}
 
           {/* 70% centered media content layers container (above background, below pinpoint) */}
           {currentMedia && !currentExperience && (() => {

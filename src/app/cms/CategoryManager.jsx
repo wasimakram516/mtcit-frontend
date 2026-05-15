@@ -20,12 +20,36 @@ import {
   Select,
   MenuItem,
   Input,
+  Snackbar,
+  Alert,
 } from "@mui/material";
-import { Add, Delete, Edit, KeyboardArrowDown, KeyboardArrowRight } from "@mui/icons-material";
-import { fetchCategories, createCategory, updateCategory, deleteCategory } from "@/services/CategoryService";
+import { Add, Delete, Edit, KeyboardArrowDown, KeyboardArrowRight, ArrowUpward, ArrowDownward } from "@mui/icons-material";
+import { fetchCategories, createCategory, updateCategory, deleteCategory, reorderCategories } from "@/services/CategoryService";
 import { useRef } from "react";
 import { useLanguage } from "@/app/context/LanguageContext";
 import ConfirmationDialog from "../components/ConfirmationDialog";
+
+/** Siblings in display order (same order as the tree / sortOrder). */
+function getSiblingsInTree(tree, row) {
+  if (!row) return [];
+  const parentId = row.parent != null && row.parent !== "" ? String(row.parent) : null;
+  if (!parentId) {
+    return Array.isArray(tree) ? tree : [];
+  }
+  const walk = (nodes) => {
+    for (const node of nodes || []) {
+      if (String(node._id) === parentId) {
+        return node.children || [];
+      }
+      if (node.children?.length) {
+        const found = walk(node.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  return walk(tree) || [];
+}
 
 export default function CategoryManager({ onChange }) {
   const [tree, setTree] = useState([]);
@@ -46,6 +70,11 @@ export default function CategoryManager({ onChange }) {
 
   const newNameRef = useRef(null);
   const { language } = useLanguage();
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "error" });
+
+  const showSnackbar = (message, severity = "error") => {
+    setSnackbar({ open: true, message, severity });
+  };
 
   const translations = {
     en: {
@@ -154,7 +183,7 @@ export default function CategoryManager({ onChange }) {
       await load();
     } catch (err) {
       console.error(err);
-      alert("Failed to create category: " + (err?.response?.data?.message || err.message));
+      showSnackbar("Failed to create category: " + (err?.response?.data?.message || err.message));
     }
   };
 
@@ -175,7 +204,7 @@ export default function CategoryManager({ onChange }) {
       await load();
     } catch (err) {
       console.error(err);
-      alert("Failed to update category: " + (err?.response?.data?.message || err.message));
+      showSnackbar("Failed to update category: " + (err?.response?.data?.message || err.message));
     }
   };
 
@@ -183,6 +212,38 @@ export default function CategoryManager({ onChange }) {
     setConfirmTargetId(id);
     setConfirmType('category');
     setConfirmOpen(true);
+  };
+
+  const applySiblingOrder = async (siblings) => {
+    // siblings: array of nodes in desired order (top-first)
+    // Use ascending sortOrder: 0, 1, 2, ... (lower = first)
+    try {
+      const payload = siblings.map((s, idx) => ({ id: s._id, sortOrder: idx }));
+      await reorderCategories(payload);
+      await load();
+      if (onChange) onChange();
+      // Notify controller via socket to reload categoryTree
+      const socketEvent = new CustomEvent('categoryReordered');
+      window.dispatchEvent(socketEvent);
+    } catch (err) {
+      console.error('Failed to save order', err);
+      const msg = err?.response?.status === 404
+        ? 'Category reorder endpoint not found. Ensure backend is running and routes are updated.'
+        : (err?.response?.data?.message || err.message || 'Failed to save order');
+      showSnackbar(msg, "error");
+    }
+  };
+
+  const handleMove = async (row, direction) => {
+    const siblings = getSiblingsInTree(tree, row);
+    const index = siblings.findIndex((s) => String(s._id) === String(row._id));
+    if (index === -1) return;
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= siblings.length) return;
+    const reordered = [...siblings];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(newIndex, 0, moved);
+    await applySiblingOrder(reordered);
   };
 
   const handleRemoveIconClick = () => {
@@ -197,7 +258,7 @@ export default function CategoryManager({ onChange }) {
         await load();
       } catch (err) {
         console.error(err);
-        alert("Failed to delete category");
+        showSnackbar("Failed to delete category: " + (err?.response?.data?.message || err.message));
       }
     } else if (confirmType === 'icon') {
       try {
@@ -224,7 +285,7 @@ export default function CategoryManager({ onChange }) {
         }
       } catch (err) {
         console.error(err);
-        alert("Failed to delete icon: " + (err?.response?.data?.message || err.message));
+        showSnackbar("Failed to delete icon: " + (err?.response?.data?.message || err.message));
       }
     }
     setConfirmOpen(false);
@@ -255,6 +316,108 @@ export default function CategoryManager({ onChange }) {
   const allCategories = tree.flatMap(function traverse(n) {
     return [n].concat(n.children ? n.children.reduce((acc, c) => acc.concat(traverse(c)), []) : []);
   });
+
+  const renderedRows = flatRows.length === 0 ? (
+    <TableRow>
+      <TableCell colSpan={3} align="center" sx={{ py: 3, color: "text.secondary" }}>
+        {t.noCategories}
+      </TableCell>
+    </TableRow>
+  ) : (
+    flatRows.map((row) => {
+      const siblings = getSiblingsInTree(tree, row);
+      const sibIndex = siblings.findIndex((s) => String(s._id) === String(row._id));
+      const canMoveUp = sibIndex > 0;
+      const canMoveDown = sibIndex >= 0 && sibIndex < siblings.length - 1;
+
+      return (
+                <TableRow key={row._id} sx={{ "&:hover": { backgroundColor: "#fafafa" } }}>
+          <TableCell>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: row.depth * 2 }}>
+              {row.children?.length > 0 && (
+                <IconButton
+                  size="small"
+                  onClick={() => toggleExpand(row._id)}
+                  sx={{ p: 0, width: 24, height: 24 }}
+                >
+                  {expandedNodes.has(row._id) ? (
+                    <KeyboardArrowDown fontSize="small" />
+                  ) : (
+                    <KeyboardArrowRight fontSize="small" />
+                  )}
+                </IconButton>
+              )}
+              {!row.children?.length && <Box sx={{ width: 24 }} />}
+              {row.icon && (
+                <Box
+                  component="img"
+                  src={row.icon}
+                  sx={{ width: 24, height: 24, borderRadius: 0.5, objectFit: "contain" }}
+                />
+              )}
+              <Typography sx={{ flex: 1 }}>{row.name?.en}</Typography>
+            </Box>
+          </TableCell>
+          <TableCell align="center">
+            <Chip
+              label={`${language === 'ar' ? 'المستوى' : 'Level'} ${row.depth + 1}`}
+              size="small"
+              variant="outlined"
+              sx={{
+                backgroundColor: row.depth === 0 ? "#e3f2fd" : row.depth === 1 ? "#f3e5f5" : "#fff3e0",
+              }}
+            />
+          </TableCell>
+          <TableCell>
+            <Box className="row-actions" sx={{ display: "flex", gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={() => openCreateDialog(row._id)}
+                title={t.addChild}
+                color="primary"
+              >
+                <Add fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => handleMove(row, 'up')}
+                title="Move Up"
+                color="primary"
+                disabled={!canMoveUp}
+              >
+                <ArrowUpward fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => handleMove(row, 'down')}
+                title="Move Down"
+                color="primary"
+                disabled={!canMoveDown}
+              >
+                <ArrowDownward fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => openEditDialog(row)}
+                title={t.edit}
+                color="primary"
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => handleDeleteClick(row._id)}
+                title={t.delete}
+                color="error"
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Box>
+          </TableCell>
+        </TableRow>
+      );
+    })
+  );
 
   return (
     <Box>
@@ -367,82 +530,7 @@ export default function CategoryManager({ onChange }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {flatRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                  {t.noCategories}
-                </TableCell>
-              </TableRow>
-            ) : (
-              flatRows.map((row) => (
-                <TableRow key={row._id} sx={{ "&:hover": { backgroundColor: "#fafafa" } }}>
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: row.depth * 2 }}>
-                      {row.children?.length > 0 && (
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleExpand(row._id)}
-                          sx={{ p: 0, width: 24, height: 24 }}
-                        >
-                          {expandedNodes.has(row._id) ? (
-                            <KeyboardArrowDown fontSize="small" />
-                          ) : (
-                            <KeyboardArrowRight fontSize="small" />
-                          )}
-                        </IconButton>
-                      )}
-                      {!row.children?.length && <Box sx={{ width: 24 }} />}
-                      {row.icon && (
-                        <Box
-                          component="img"
-                          src={row.icon}
-                          sx={{ width: 24, height: 24, borderRadius: 0.5, objectFit: "contain" }}
-                        />
-                      )}
-                      <Typography sx={{ flex: 1 }}>{row.name?.en}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={`${language === 'ar' ? 'المستوى' : 'Level'} ${row.depth + 1}`}
-                      size="small"
-                      variant="outlined"
-                      sx={{
-                        backgroundColor: row.depth === 0 ? "#e3f2fd" : row.depth === 1 ? "#f3e5f5" : "#fff3e0",
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => openCreateDialog(row._id)}
-                        title={t.addChild}
-                        color="primary"
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => openEditDialog(row)}
-                        title={t.edit}
-                        color="primary"
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteClick(row._id)}
-                        title={t.delete}
-                        color="error"
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
+            {renderedRows}
           </TableBody>
         </Table>
       </Paper>
@@ -456,6 +544,21 @@ export default function CategoryManager({ onChange }) {
         confirmButtonText={t.delete}
         cancelButtonText={t.cancel}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {flatRows.length > 0 && (
         <Box sx={{ mt: 3, p: 2, backgroundColor: "#f9f9f9", borderRadius: 1 }}>

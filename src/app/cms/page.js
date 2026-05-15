@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Input,
   MenuItem,
   IconButton,
   Avatar,
@@ -32,6 +31,11 @@ import {
 } from "@/services/DisplayMediaService";
 import ConfirmationDialog from "@/app/components/ConfirmationDialog";
 import MediaLayerManager from "@/app/components/MediaLayerManager";
+import BackgroundSlideManager from "@/app/components/BackgroundSlideManager";
+import {
+  createEmptyBackgroundSlide,
+  serializeBackgroundSlidesForApi,
+} from "@/utils/backgroundSlides";
 import { useLanguage } from "../context/LanguageContext";
 import LanguageSelector from "../components/LanguageSelector";
 import CMSBackgroundManager from "../components/CMSBackgroundManager";
@@ -41,7 +45,6 @@ import CategoryManager from "./CategoryManager";
 import StrategyForecastManager from "./StrategyForecastManager";
 import ElectricVehiclesManager from "./ElectricVehiclesManager";
 import MapManager from "./MapManager";
-import { normalizeSlug } from "@/utils/slugify";
 
 const CMS_TAB_STORAGE_KEY = "cmsActiveTab";
 
@@ -115,14 +118,6 @@ export default function CMSPage() {
     categoryPath: [],
     layers: [],
     mediaLayers: [],
-    title: "",
-    slug: "",
-    slugTouched: false,
-    pinpointFile: null,
-    pinpointX: "",
-    pinpointY: "",
-    pinpointPreview: null,
-    removePinpoint: false,
   });
   const [errors, setErrors] = useState({});
   const [confirmationOpen, setConfirmationOpen] = useState(false);
@@ -137,8 +132,6 @@ export default function CMSPage() {
     setActiveTab(readStoredCmsTab());
   }, []);
   const [internalMessage, setInternalMessage] = useState({ type: "", text: "" });
-  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
-  const [removeTarget, setRemoveTarget] = useState(null); // 'en', 'ar', 'pinpoint'
 
   const translations = {
     en: {
@@ -158,7 +151,6 @@ export default function CMSPage() {
       delete: "Delete",
       englishMedia: "English Media",
       arabicMedia: "Arabic Media",
-      pinpointPositionLabel: "Pinpoint Position:",
       generalInfo: "General Info",
       category: "Category",
       categoryHelper: "Select or type a new category name.",
@@ -180,13 +172,6 @@ export default function CMSPage() {
       layerWidth: "Layer Width (%)",
       layerHeight: "Layer Height (%)",
       layerTypeHelper: "Upload one or more positioned images for this media item.",
-      pinpointUpload: "Media Logo Upload (Optional)",
-      pinpointUploadHelper:
-        "Upload an image that will act as a logo for this media item (optional).",
-      pinpointPosition: "Logo Position (Optional)",
-      pinpointPositionHelper: "Set the X and Y position of the logo as a percentage (0–100%).",
-      pinpointX: "Logo X Position (%)",
-      pinpointY: "Logo Y Position (%)",
       backgroundManager: "Background Manager",
       accordionForegroundTitle: "Foreground media (big screen center)",
       accordionForegroundDescription:
@@ -231,7 +216,6 @@ export default function CMSPage() {
       delete: "حذف",
       englishMedia: "الوسائط الإنجليزية",
       arabicMedia: "الوسائط العربية",
-      pinpointPositionLabel: "موقع العلامة:",
       generalInfo: "معلومات عامة",
       category: "الفئة",
       categoryHelper: "اختر أو اكتب اسم فئة جديدة.",
@@ -253,12 +237,6 @@ export default function CMSPage() {
       layerWidth: "عرض الطبقة (%)",
       layerHeight: "ارتفاع الطبقة (%)",
       layerTypeHelper: "قم بتحميل صورة أو أكثر يمكن وضعها داخل هذا العنصر.",
-      pinpointUpload: "تحميل شعار الوسائط (اختياري)",
-      pinpointUploadHelper: "قم بتحميل صورة تعمل كشعار لهذه الوسائط (اختياري).",
-      pinpointPosition: "موقع الشعار (اختياري)",
-      pinpointPositionHelper: "عيّن موضع الشعار بالنسبة المئوية (0-100٪).",
-      pinpointX: "موضع X للشعار (%)",
-      pinpointY: "موضع Y للشعار (%)",
       backgroundManager: "مدير الخلفيات",
       accordionForegroundTitle: "وسائط المقدمة (وسط الشاشة الكبيرة)",
       accordionForegroundDescription:
@@ -373,42 +351,12 @@ export default function CMSPage() {
       newErrors.category = "Category is required.";
     }
 
-    const titleTrim = String(formData.title || "").trim();
-    if (!titleTrim) {
-      newErrors.title = "Title is required.";
-    }
-
-    const slugNorm = normalizeSlug(formData.slug || formData.title || "");
-    if (slugNorm.length < 2) {
-      newErrors.slug = t.slugInvalid;
-    }
-
-    // Validate Pinpoint X (allow negative values)
-    if (formData.pinpointX !== "" && formData.pinpointX !== null) {
-      const x = Number(formData.pinpointX);
-      if (isNaN(x) || x > 100) {
-        newErrors.pinpointX = "X must be a number (any negative or positive value, max 100).";
-      }
-    }
-
-    // Validate Pinpoint Y (allow negative values)
-    if (formData.pinpointY !== "" && formData.pinpointY !== null) {
-      const y = Number(formData.pinpointY);
-      if (isNaN(y) || y > 100) {
-        newErrors.pinpointY = "Y must be a number (any negative or positive value, max 100).";
-      }
-    }
-
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      const { category, title, slug, pinpointX, pinpointY } = newErrors;
+      const { category } = newErrors;
       let errorMessage = "Please fix the following:\n";
       if (category) errorMessage += `- ${category}\n`;
-      if (title) errorMessage += `- ${title}\n`;
-      if (slug) errorMessage += `- ${slug}\n`;
-      if (pinpointX) errorMessage += `- ${pinpointX}\n`;
-      if (pinpointY) errorMessage += `- ${pinpointY}\n`;
       showMessage(errorMessage.trim(), "error");
       return false;
     }
@@ -471,9 +419,6 @@ export default function CMSPage() {
     setOpenDialog(false);
     setEditingItem(null);
 
-    // Revoke pinpoint preview blob URL
-    if (formData.pinpointPreview?.startsWith("blob:")) URL.revokeObjectURL(formData.pinpointPreview);
-
     // Revoke layer previews
     formData.layers.forEach((layer) => {
       if (layer.previewEn?.startsWith("blob:")) URL.revokeObjectURL(layer.previewEn);
@@ -490,64 +435,46 @@ export default function CMSPage() {
       categoryPath: [],
       fileEn: null,
       fileAr: null,
-      pinpointFile: null,
-      pinpointX: "",
-      pinpointY: "",
       previewEn: null,
       previewAr: null,
-      pinpointPreview: null,
       layers: [],
       mediaLayers: [],
-      title: "",
-      slug: "",
-      slugTouched: false,
       removeEn: false,
       removeAr: false,
-      removePinpoint: false,
     });
     setInternalMessage({ type: "", text: "" });
-  };
-
-  const handleRemoveMediaClick = (target) => {
-    setRemoveTarget(target);
-    setRemoveConfirmOpen(true);
-  };
-
-  const confirmRemoveMedia = async () => {
-    setActionLoading(true);
-    try {
-      if (removeTarget === 'pinpoint') {
-        if (editingItem) {
-          const payload = new FormData();
-          payload.append("removePinpoint", "true");
-          await updateMedia(editingItem._id, payload);
-          showInternalMessage("Logo removed", "success");
-          const res = await getMedia();
-          const updated = res.data?.find(m => m._id === editingItem._id);
-          if (updated) setEditingItem(updated);
-        }
-        if (formData.pinpointPreview?.startsWith("blob:")) URL.revokeObjectURL(formData.pinpointPreview);
-        setFormData(prev => ({ ...prev, pinpointFile: null, pinpointPreview: null, removePinpoint: !editingItem }));
-      }
-    } catch (err) {
-      console.error("Error removing pinpoint:", err);
-      showInternalMessage("Failed to remove logo", "error");
-    } finally {
-      setActionLoading(false);
-      setRemoveConfirmOpen(false);
-      setRemoveTarget(null);
-    }
   };
 
   /**
    * Serialize a layers array into { metaPayload, filesEn, filesAr } for FormData submission.
    */
+  const resolveForegroundLayerUrls = (layer = {}) => {
+    const urlFromFile = (f) =>
+      f && typeof f === "object" && !(f instanceof File) ? f.url || "" : "";
+    const previewUrl = (p) => (p && !String(p).startsWith("blob:") ? String(p) : "");
+    return {
+      existingUrlEn:
+        layer.existingUrlEn || urlFromFile(layer.fileEn) || previewUrl(layer.previewEn) || "",
+      existingUrlAr:
+        layer.existingUrlAr || urlFromFile(layer.fileAr) || previewUrl(layer.previewAr) || "",
+    };
+  };
+
   const serializeLayers = (layerList = []) => {
     const filesEn = [];
     const filesAr = [];
     const meta = layerList
-      .filter((l) => l.fileEn || l.fileAr || l.existingUrlEn || l.existingUrlAr)
+      .filter((layer) => {
+        const urls = resolveForegroundLayerUrls(layer);
+        return (
+          layer.fileEn instanceof File ||
+          layer.fileAr instanceof File ||
+          urls.existingUrlEn ||
+          urls.existingUrlAr
+        );
+      })
       .map((layer, index) => {
+        const urls = resolveForegroundLayerUrls(layer);
         const isFileEn = layer.fileEn instanceof File;
         const isFileAr = layer.fileAr instanceof File;
         const fileIndexEn = isFileEn ? filesEn.length : null;
@@ -558,14 +485,14 @@ export default function CMSPage() {
           fileIndex: fileIndexEn,
           fileIndexEn,
           fileIndexAr,
-          existingUrlEn: layer.existingUrlEn || "",
-          existingUrlAr: layer.existingUrlAr || "",
+          existingUrlEn: urls.existingUrlEn,
+          existingUrlAr: urls.existingUrlAr,
           position: layer.position,
           size: layer.size,
           opacity: layer.opacity,
           rotation: layer.rotation,
-          title: layer.title || "",
-          description: layer.description || "",
+          title: String(layer.title ?? "").trim(),
+          description: String(layer.description ?? "").trim(),
           type: layer.typeEn || layer.type || "image",
           typeEn: layer.typeEn || layer.type || "image",
           typeAr: layer.typeAr || "image",
@@ -581,7 +508,7 @@ export default function CMSPage() {
 
     setActionLoading(true);
     try {
-      const bgSerialized = serializeLayers(formData.layers);
+      const bgSerialized = serializeBackgroundSlidesForApi(formData.layers);
       const mlSerialized = serializeLayers(formData.mediaLayers);
 
       const cleanPayload = new FormData();
@@ -589,15 +516,6 @@ export default function CMSPage() {
       cleanPayload.append("subcategory", formData.subcategory || "");
       if (formData.categoryPath && formData.categoryPath.length)
         cleanPayload.append("categoryPath", JSON.stringify(formData.categoryPath));
-
-      cleanPayload.append("title", String(formData.title || "").trim());
-      cleanPayload.append("slug", normalizeSlug(formData.slug || formData.title || ""));
-
-      // Pinpoint / Logo
-      if (formData.pinpointFile) cleanPayload.append("pinpoint", formData.pinpointFile);
-      if (formData.pinpointX) cleanPayload.append("pinpointX", formData.pinpointX);
-      if (formData.pinpointY) cleanPayload.append("pinpointY", formData.pinpointY);
-      if (formData.removePinpoint) cleanPayload.append("removePinpoint", "true");
 
       // Background layers: JSON meta + En/Ar files
       cleanPayload.append("layers", JSON.stringify(bgSerialized.meta));
@@ -627,8 +545,8 @@ export default function CMSPage() {
         requestCategoryReload();
       }, 1500);
     } catch (err) {
-      console.error("❌ Save error:", err);
-      console.error("Response:", err?.response?.data);
+      console.error("❌ Save error:", err ?? "Unknown error");
+      console.error("Response:", err?.response?.data ?? "No response data");
       const errorMsg =
         typeof err === "string"
           ? err
@@ -686,16 +604,8 @@ export default function CMSPage() {
       category: item?.category || "",
       subcategory: item?.subcategory || "",
       categoryPath: item?.categoryPath || [],
-      title: item?.title || "",
-      slug: item?.slug || "",
-      slugTouched: !!item,
-      layers: item?.layers?.map(mapLayerToFormLayer) || [],
+      layers: item?.layers?.map((l) => createEmptyBackgroundSlide(l)) || [],
       mediaLayers: item?.mediaLayers?.map(mapLayerToFormLayer) || [],
-      pinpointFile: null,
-      pinpointX: item?.pinpoint?.position?.x?.toString() || "",
-      pinpointY: item?.pinpoint?.position?.y?.toString() || "",
-      pinpointPreview: item?.pinpoint?.file?.url || null,
-      removePinpoint: false,
     });
     setOpenDialog(true);
   };
@@ -907,8 +817,8 @@ export default function CMSPage() {
 
                     {/* Media Layers Preview */}
                     {(() => {
-                      const renderLayerStrip = (layers, heading, emptyLabel) => {
-                        if (!layers || layers.length === 0) {
+                      const renderAssetStrip = (items, heading, emptyLabel, getMeta) => {
+                        if (!items || items.length === 0) {
                           return (
                             <Box sx={{ mt: 2 }}>
                               <Typography variant="caption" color="text.secondary">{emptyLabel}</Typography>
@@ -916,79 +826,103 @@ export default function CMSPage() {
                           );
                         }
 
+                        const thumbBox = (src, isVideo) =>
+                          isVideo ? (
+                            <Box component="video" src={src} muted sx={{ width: "50px", height: "50px", objectFit: "contain", borderRadius: 1, bgcolor: "#eee" }} />
+                          ) : (
+                            <Box component="img" src={src} sx={{ width: "50px", height: "50px", objectFit: "contain", borderRadius: 1, bgcolor: "#eee" }} />
+                          );
+
+                        const emptyThumb = (aria) => (
+                          <Box
+                            sx={{
+                              width: "50px",
+                              height: "50px",
+                              backgroundColor: "#eee",
+                              borderRadius: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            aria-label={aria}
+                          >
+                            <ImageNotSupportedOutlined sx={{ fontSize: 22, color: "text.disabled" }} />
+                          </Box>
+                        );
+
                         return (
                           <Box sx={{ mt: 2 }}>
                             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                              {heading} ({layers.length})
+                              {heading} ({items.length})
                             </Typography>
                             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                              {layers.map((layer, idx) => {
-                                const hasEn = !!layer.fileEn?.url;
-                                const hasAr = !!layer.fileAr?.url;
-                                const enSrc = layer.fileEn?.url;
-                                const arSrc = layer.fileAr?.url;
-                                const enIsVideo = layer.fileEn?.type === "video";
-                                const arIsVideo = layer.fileAr?.type === "video";
-                                
+                              {items.map((item, idx) => {
+                                const enSrc = item.fileEn?.url;
+                                const arSrc = item.fileAr?.url;
+                                const enIsVideo = item.fileEn?.type === "video";
+                                const arIsVideo = item.fileAr?.type === "video";
+                                const { title, subtitle } = getMeta(item, idx);
+
                                 return (
-                                  <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 1, p: 0.5, border: "1px solid #eee", borderRadius: 1, bgcolor: "#fff" }}>
+                                  <Box
+                                    key={item._id || idx}
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                      p: 0.5,
+                                      border: "1px solid #eee",
+                                      borderRadius: 1,
+                                      bgcolor: "#fff",
+                                    }}
+                                  >
                                     <Box sx={{ display: "flex", gap: 0.5 }}>
-                                      {/* EN Preview */}
                                       <Box sx={{ position: "relative" }}>
-                                        <Typography variant="caption" sx={{ position: "absolute", top: 0, left: 0, bgcolor: "rgba(0,0,0,0.5)", color: "#fff", fontSize: "0.5rem", px: 0.5, zIndex: 1 }}>EN</Typography>
-                                        {hasEn ? (
-                                          enIsVideo ? (
-                                            <Box component="video" src={enSrc} sx={{ width: "50px", height: "50px", objectFit: "contain", borderRadius: 1, bgcolor: "#eee" }} />
-                                          ) : (
-                                            <Box component="img" src={enSrc} sx={{ width: "50px", height: "50px", objectFit: "contain", borderRadius: 1, bgcolor: "#eee" }} />
-                                          )
-                                        ) : (
-                                          <Box
-                                            sx={{
-                                              width: "50px",
-                                              height: "50px",
-                                              backgroundColor: "#eee",
-                                              borderRadius: 1,
-                                              display: "flex",
-                                              alignItems: "center",
-                                              justifyContent: "center",
-                                            }}
-                                            aria-label="No English asset"
-                                          >
-                                            <ImageNotSupportedOutlined sx={{ fontSize: 22, color: "text.disabled" }} />
-                                          </Box>
-                                        )}
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            bgcolor: "rgba(0,0,0,0.5)",
+                                            color: "#fff",
+                                            fontSize: "0.5rem",
+                                            px: 0.5,
+                                            zIndex: 1,
+                                          }}
+                                        >
+                                          EN
+                                        </Typography>
+                                        {enSrc ? thumbBox(enSrc, enIsVideo) : emptyThumb("No English asset")}
                                       </Box>
-                                      {/* AR Preview */}
                                       <Box sx={{ position: "relative" }}>
-                                        <Typography variant="caption" sx={{ position: "absolute", top: 0, left: 0, bgcolor: "rgba(0,0,0,0.5)", color: "#fff", fontSize: "0.5rem", px: 0.5, zIndex: 1 }}>AR</Typography>
-                                        {hasAr ? (
-                                          arIsVideo ? (
-                                            <Box component="video" src={arSrc} sx={{ width: "50px", height: "50px", objectFit: "contain", borderRadius: 1, bgcolor: "#eee" }} />
-                                          ) : (
-                                            <Box component="img" src={arSrc} sx={{ width: "50px", height: "50px", objectFit: "contain", borderRadius: 1, bgcolor: "#eee" }} />
-                                          )
-                                        ) : (
-                                          <Box
-                                            sx={{
-                                              width: "50px",
-                                              height: "50px",
-                                              backgroundColor: "#eee",
-                                              borderRadius: 1,
-                                              display: "flex",
-                                              alignItems: "center",
-                                              justifyContent: "center",
-                                            }}
-                                            aria-label="No Arabic asset"
-                                          >
-                                            <ImageNotSupportedOutlined sx={{ fontSize: 22, color: "text.disabled" }} />
-                                          </Box>
-                                        )}
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            bgcolor: "rgba(0,0,0,0.5)",
+                                            color: "#fff",
+                                            fontSize: "0.5rem",
+                                            px: 0.5,
+                                            zIndex: 1,
+                                          }}
+                                        >
+                                          AR
+                                        </Typography>
+                                        {arSrc ? thumbBox(arSrc, arIsVideo) : emptyThumb("No Arabic asset")}
                                       </Box>
                                     </Box>
-                                    <Box>
-                                      <Typography variant="caption" fontWeight="bold">{layer.title || `Layer ${idx + 1}`}</Typography>
-                                      <Typography variant="caption" display="block" color="text.secondary">Z: {layer.zIndex ?? 0}</Typography>
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography variant="caption" fontWeight="bold" noWrap>
+                                        {title}
+                                      </Typography>
+                                      {subtitle ? (
+                                        <Typography variant="caption" display="block" color="text.secondary">
+                                          {subtitle}
+                                        </Typography>
+                                      ) : null}
                                     </Box>
                                   </Box>
                                 );
@@ -1000,30 +934,27 @@ export default function CMSPage() {
 
                       return (
                         <>
-                          {renderLayerStrip(
+                          {renderAssetStrip(
                             item.mediaLayers,
                             t.listStripForegroundHeading,
-                            t.listStripForegroundEmpty
+                            t.listStripForegroundEmpty,
+                            (layer, idx) => ({
+                              title: `Layer ${idx + 1}`,
+                              subtitle: `Z: ${layer.zIndex ?? 0}`,
+                            })
                           )}
-                          {renderLayerStrip(
+                          {renderAssetStrip(
                             item.layers,
                             t.listStripBackgroundHeading,
-                            t.listStripBackgroundEmpty
+                            t.listStripBackgroundEmpty,
+                            (slide, idx) => ({
+                              title: slide.displayTitle || slide.title || `Slide ${idx + 1}`,
+                              subtitle: `Seq ${idx + 1}`,
+                            })
                           )}
                         </>
                       );
                     })()}
-
-                    {/* Pinpoint Section */}
-                    {item.pinpoint?.file?.url && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 2 }}>
-                        <Box component="img" src={item.pinpoint.file.url} alt="Pinpoint" sx={{ width: "60px", height: "60px", borderRadius: "50%", border: "1px solid #ddd" }} />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">{t.pinpointPositionLabel}</Typography>
-                          <Typography variant="body2">X: {item.pinpoint?.position?.x ?? "0"}%, Y: {item.pinpoint?.position?.y ?? "0"}%</Typography>
-                        </Box>
-                      </Box>
-                    )}
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
                       <Button variant="outlined" color="secondary" onClick={() => openForm(item)} startIcon={<Edit />}>{t.edit}</Button>
@@ -1069,16 +1000,6 @@ export default function CMSPage() {
           )
         }
         confirmButtonProps={{ disabled: actionLoading }}
-      />
-
-      {/* Remove Media Preview Confirmation */}
-      <ConfirmationDialog
-        open={removeConfirmOpen}
-        onClose={() => setRemoveConfirmOpen(false)}
-        onConfirm={confirmRemoveMedia}
-        title="Remove Media"
-        message={`Are you sure you want to remove the ${removeTarget?.toUpperCase()} media?`}
-        confirmButtonText="Remove"
       />
 
       <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth>
@@ -1161,108 +1082,6 @@ export default function CMSPage() {
             </>
           )}
 
-          <TextField
-            fullWidth
-            label={t.mediaTitle}
-            value={formData.title}
-            onChange={(e) => {
-              const v = e.target.value;
-              setFormData((prev) => ({
-                ...prev,
-                title: v,
-                slug: prev.slugTouched ? prev.slug : normalizeSlug(v),
-              }));
-            }}
-            margin="normal"
-            sx={{ mt: 2 }}
-            error={!!errors.title}
-            helperText={errors.title}
-          />
-
-          <TextField
-            fullWidth
-            label={t.mediaSlug}
-            value={formData.slug}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                slug: e.target.value,
-                slugTouched: true,
-              }))
-            }
-            margin="normal"
-            error={!!errors.slug}
-            helperText={errors.slug}
-          />
-
-          {/* ── Logo / Pinpoint (kept as-is) ── */}
-          <Typography variant="subtitle2" sx={{ mt: 3 }}>
-            {t.pinpointUpload}
-          </Typography>
-          <Input
-            type="file"
-            sx={{ mt: 1 }}
-            inputProps={{ accept: "image/*" }}
-            onChange={(e) => {
-              const file = e.target.files[0];
-              setFormData((prev) => ({
-                ...prev,
-                pinpointFile: file,
-                pinpointPreview: file ? URL.createObjectURL(file) : null,
-                removePinpoint: false,
-              }));
-            }}
-          />
-          {formData.pinpointPreview && (
-            <Box sx={{ mt: 2, position: "relative", width: "fit-content", borderRadius: 2, overflow: "hidden" }}>
-              <IconButton
-                size="small"
-                onClick={() => handleRemoveMediaClick("pinpoint")}
-                sx={{ position: "absolute", top: 5, left: 5, bgcolor: "rgba(255,255,255,0.8)", zIndex: 10, "&:hover": { bgcolor: "#fff" } }}
-              >
-                <Delete fontSize="small" color="error" />
-              </IconButton>
-              {actionLoading && formData.pinpointFile instanceof File && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
-              <Box
-                component="img"
-                src={formData.pinpointPreview}
-                alt="Logo Preview"
-                sx={{ width: "100px", height: "100px", objectFit: "contain", backgroundColor: "#eee", borderRadius: 2, border: "1px solid #ddd" }}
-              />
-            </Box>
-          )}
-
-          <Typography variant="subtitle2" sx={{ mt: 3 }}>
-            {t.pinpointPosition}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t.pinpointPositionHelper}
-          </Typography>
-          <Box sx={{ display: "flex", gap: 2 }}>
-            <TextField
-              label={t.pinpointX}
-              type="number"
-              fullWidth
-              sx={{ mt: 1 }}
-              value={formData.pinpointX}
-              onChange={(e) => setFormData((prev) => ({ ...prev, pinpointX: e.target.value }))}
-              inputProps={{ max: 100 }}
-              error={!!errors.pinpointX}
-              helperText={errors.pinpointX}
-            />
-            <TextField
-              label={t.pinpointY}
-              type="number"
-              fullWidth
-              sx={{ mt: 1 }}
-              value={formData.pinpointY}
-              onChange={(e) => setFormData((prev) => ({ ...prev, pinpointY: e.target.value }))}
-              inputProps={{ max: 100 }}
-              error={!!errors.pinpointY}
-              helperText={errors.pinpointY}
-            />
-          </Box>
-
           {/* Foreground media (center) — listed first in the modal */}
           <Box sx={{ mt: 4 }}>
             <Accordion variant="outlined" sx={{ borderRadius: 2 }}>
@@ -1305,8 +1124,8 @@ export default function CMSPage() {
                 <Typography variant="body2" color="text.secondary" sx={{ display: "block", mb: 2 }}>
                   {t.accordionBackgroundDescription}
                 </Typography>
-                <MediaLayerManager
-                  layers={formData.layers}
+                <BackgroundSlideManager
+                  slides={formData.layers}
                   onChange={(nextLayers) =>
                     setFormData((current) => ({ ...current, layers: nextLayers }))
                   }
@@ -1318,23 +1137,6 @@ export default function CMSPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          {actionLoading && uploadProgress > 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ flex: 1, ml: 2 }}>
-              Uploading... {uploadProgress}%
-            </Typography>
-          )}
-          {editingItem && (
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => { setSelectedId(editingItem._id); setConfirmationOpen(true); }}
-              startIcon={<Delete />}
-              disabled={actionLoading}
-              sx={{ mr: "auto" }}
-            >
-              {t.delete}
-            </Button>
-          )}
           <Button onClick={handleCloseDialog} disabled={actionLoading}>
             {t.cancel}
           </Button>
