@@ -77,6 +77,7 @@ export default function BackgroundSlideshow({
           src={src}
           autoPlay
           muted
+          loop={ordered.length <= 1}
           playsInline
           onEnded={goNext}
           sx={{
