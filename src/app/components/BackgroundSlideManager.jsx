@@ -118,6 +118,7 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
           title: "Title",
           titleX: "Title position X (%)",
           titleY: "Title position Y (%)",
+          titleSize: "Title size (px)",
           opacity: "Asset opacity",
           darkOverlay: "Dark overlay",
           lightOverlay: "Light overlay",
@@ -401,6 +402,19 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
             max={100}
             onChange={(_, v) =>
               setDraft((d) => ({ ...d, titlePosition: { ...d.titlePosition, y: v } }))
+            }
+          />
+
+          <Typography variant="body2">
+            {(t.titleSize || "Title size (px)")}: {Math.round(draft.titleFontSize ?? 56)}px
+          </Typography>
+          <Slider
+            value={draft.titleFontSize ?? 56}
+            min={24}
+            max={120}
+            step={2}
+            onChange={(_, v) =>
+              setDraft((d) => ({ ...d, titleFontSize: Array.isArray(v) ? v[0] : v }))
             }
           />
 

@@ -40,7 +40,7 @@ export function normalizeSlidesForPlayback(rawSlides = []) {
       darkOverlay: slide.darkOverlay ?? 0,
       lightOverlay: slide.lightOverlay ?? 0,
       displayTitle: slide.displayTitle ?? slide.title ?? "",
-      titleFontSize: Number(slide.titleFontSize ?? 100),
+      titleFontSize: Number(slide.titleFontSize ?? 56),
       titlePosition: slide.titlePosition || { x: 50, y: 50 },
     }));
 }
@@ -91,7 +91,7 @@ export function serializeBackgroundSlidesForApi(slideList = []) {
       darkOverlay: slide.darkOverlay ?? 0,
       lightOverlay: slide.lightOverlay ?? 0,
       displayTitle: String(slide.displayTitle ?? "").trim(),
-      titleFontSize: Number(slide.titleFontSize ?? 100),
+      titleFontSize: Number(slide.titleFontSize ?? 56),
       titlePosition: {
         x: Number(slide.titlePosition?.x ?? 50),
         y: Number(slide.titlePosition?.y ?? 50),
@@ -123,7 +123,7 @@ export const createEmptyBackgroundSlide = (slide = {}) => {
     darkOverlay: slide.darkOverlay ?? 0,
     lightOverlay: slide.lightOverlay ?? 0,
     displayTitle: slide.displayTitle ?? slide.title ?? "",
-    titleFontSize: Number(slide.titleFontSize ?? 100),
+    titleFontSize: Number(slide.titleFontSize ?? 56),
     titlePosition: slide.titlePosition || { x: 50, y: 50 },
     isActive: slide.isActive !== undefined ? slide.isActive : true,
     removeEn: false,

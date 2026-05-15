@@ -65,6 +65,7 @@ export default function BackgroundSlideshow({
   const light = current.lightOverlay ?? 0;
   const title = current.displayTitle || "";
   const titlePos = current.titlePosition || { x: 50, y: 50 };
+  const titleFontPx = Math.max(24, Math.min(120, Number(current.titleFontSize ?? 56)));
 
   return (
     <Box sx={{ position: "absolute", inset: 0, overflow: "hidden", bgcolor: "#000", ...sx }}>
@@ -83,7 +84,7 @@ export default function BackgroundSlideshow({
             inset: 0,
             width: "100%",
             height: "100%",
-            objectFit: "contain",
+            objectFit: "cover",
             opacity,
           }}
         />
@@ -98,7 +99,7 @@ export default function BackgroundSlideshow({
             inset: 0,
             width: "100%",
             height: "100%",
-            objectFit: "contain",
+            objectFit: "cover",
             opacity,
           }}
         />
@@ -138,7 +139,9 @@ export default function BackgroundSlideshow({
             zIndex: 10,
             color: "#F8FCF6",
             fontWeight: 700,
-            fontSize: "clamp(1.25rem, 2.5vw, 2.75rem)",
+            fontSize: `clamp(${Math.round(titleFontPx * 0.75)}px, ${(titleFontPx / 1920) * 100}vw, ${Math.round(
+              titleFontPx * 1.18
+            )}px)`,
             textAlign: "center",
             textShadow: "0 2px 12px rgba(0,0,0,0.65)",
             px: 2,

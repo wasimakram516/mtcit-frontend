@@ -40,7 +40,7 @@ export default function MapEmbedExperience({
           borderRadius: "28px",
           border: "1px solid rgba(248,252,246,0.14)",
           background:
-            "linear-gradient(180deg, rgba(14,36,20,0.72) 0%, rgba(10,20,52,0.6) 100%)",
+            "linear-gradient(135deg, rgba(14,36,20,0.92) 0%, rgba(10,20,52,0.82) 100%)",
           boxShadow: "0 25px 55px rgba(0,0,0,0.28)",
           backdropFilter: "blur(12px)",
           color: "#F8FCF6",
@@ -211,17 +211,17 @@ export default function MapEmbedExperience({
           position: "relative",
           borderRadius: "28px",
           overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.05)",
+          border: "1px solid rgba(17,34,28,0.92)",
           boxShadow: "0 10px 22px rgba(0,0,0,0.1)",
-          bgcolor: "rgba(255,255,255,0.05)",
-          backdropFilter: "blur(10px)",
+          bgcolor: "#132823",
+          backdropFilter: "none",
         }}
       >
         <Box
           sx={{
             position: "relative",
             height: "clamp(360px, 42vw, 620px)",
-            bgcolor: "rgba(8,18,16,0.42)",
+            bgcolor: "#0B1714",
           }}
         >
           <Box

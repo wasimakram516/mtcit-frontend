@@ -81,6 +81,7 @@ export default function BigScreenPage() {
   const dedicatedBackgroundSlides = currentMedia?.layers || [];
   const hasDedicatedBackgrounds = dedicatedBackgroundSlides.some((slide) => slide?.isActive !== false);
   const stageBackgroundSlides = hasDedicatedBackgrounds ? dedicatedBackgroundSlides : activeBackgrounds;
+  const hasStageContent = Boolean(carbonActive || currentMedia || currentExperience);
 
   const stageAspectRatio = "7 / 3";
   const stageWidth = "min(98vw, calc(92vh * 7 / 3))";
@@ -159,7 +160,31 @@ export default function BigScreenPage() {
       {/* Full-Screen Base Layer (Vanta Clouds) */}
       <CloudsBackground />
 
-      {/* 90% Centered Viewport for Custom Backgrounds & Media */}
+      {(carbonActive || stageBackgroundSlides.length === 0) && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+          }}
+        >
+          <DynamicBackground language={currentLanguage} />
+        </Box>
+      )}
+
+      {!carbonActive && stageBackgroundSlides.length > 0 && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+          }}
+        >
+          <BackgroundSlideshow slides={stageBackgroundSlides} language={currentLanguage} />
+        </Box>
+      )}
+
+      {/* Centered Viewport for foreground content / experiences */}
       <Box
         sx={{
           position: "absolute",
@@ -172,38 +197,13 @@ export default function BigScreenPage() {
           maxWidth: "98vw",
           zIndex: 1,
           overflow: "hidden",
-          borderRadius: stageRadius,
+          borderRadius: hasStageContent ? stageRadius : 0,
           pointerEvents: "none",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+          boxShadow: hasStageContent ? "0 25px 50px -12px rgba(0, 0, 0, 0.5)" : "none",
           boxSizing: "border-box",
+          backgroundColor: "transparent",
         }}
       >
-        {/* Global Custom Background Fallback / Carbon Mode — bottom of stage stack */}
-        {(carbonActive || stageBackgroundSlides.length === 0) && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              zIndex: zStageFallbackBg,
-            }}
-          >
-            <DynamicBackground language={currentLanguage} />
-          </Box>
-        )}
-
-        {/* Media-Specific Background Layers — above fallback, below foreground */}
-        {!carbonActive && stageBackgroundSlides.length > 0 && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              zIndex: zStageMediaBgLayers,
-            }}
-          >
-            <BackgroundSlideshow slides={stageBackgroundSlides} language={currentLanguage} />
-          </Box>
-        )}
-        
         {/* Main Content Area (Now inside the 90% centered boundary) */}
         <Box
           sx={{
@@ -317,7 +317,21 @@ export default function BigScreenPage() {
                 boxSizing: "border-box",
               }}
             >
-              {renderExperience()}
+              <Box
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: stageRadius,
+                  overflow: "hidden",
+                  background:
+                    "linear-gradient(135deg, #07280B 0%, #1C932D 56%, #390042 100%)",
+                  boxShadow: "0 25px 50px rgba(0,0,0,0.26)",
+                  p: "clamp(18px, 1.8vw, 28px)",
+                  boxSizing: "border-box",
+                }}
+              >
+                {renderExperience()}
+              </Box>
             </Box>
           )}
 
@@ -377,6 +391,12 @@ export default function BigScreenPage() {
                       layer.position,
                       layer.size
                     );
+                    const fillsMediaFrame =
+                      posX === 0 &&
+                      posY === 0 &&
+                      sizeW === 100 &&
+                      sizeH === 100 &&
+                      Number(layer.rotation || 0) === 0;
 
                     return (
                       <Box
@@ -397,7 +417,7 @@ export default function BigScreenPage() {
                           maxWidth: "100%",
                           maxHeight: "100%",
                           boxSizing: "border-box",
-                          objectFit: "contain",
+                          objectFit: fillsMediaFrame ? "cover" : "contain",
                           objectPosition: "center",
                           opacity: layer.opacity ?? 1,
                           transform: `rotate(${layer.rotation || 0}deg)`,

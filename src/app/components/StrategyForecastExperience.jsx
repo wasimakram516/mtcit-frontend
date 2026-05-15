@@ -300,12 +300,12 @@ export default function StrategyForecastExperience({
             overflow: "hidden",
           border: interactive
             ? "1px solid rgba(255,255,255,0.1)"
-            : "1px solid rgba(255,255,255,0.05)",
+            : "1px solid rgba(17,34,28,0.92)",
           boxShadow: interactive
             ? "0 30px 60px rgba(0,0,0,0.28)"
             : "0 10px 22px rgba(0,0,0,0.1)",
-          bgcolor: "rgba(255,255,255,0.05)",
-          backdropFilter: "blur(10px)",
+          bgcolor: interactive ? "rgba(255,255,255,0.05)" : "#132823",
+          backdropFilter: interactive ? "blur(10px)" : "none",
         }}
       >
         <Box

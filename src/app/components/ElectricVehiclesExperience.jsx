@@ -120,8 +120,17 @@ export default function ElectricVehiclesExperience({
       sx={{
         width: "100%",
         maxWidth: interactive ? "min(92vw, 1040px)" : "100%",
+        height: interactive ? "auto" : "100%",
         mx: "auto",
         color: "#F6FCF6",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        background: "transparent",
+        borderRadius: 0,
+        p: 0,
+        boxSizing: "border-box",
+        overflow: "visible",
       }}
     >
       <Stack
@@ -129,14 +138,14 @@ export default function ElectricVehiclesExperience({
         alignItems="center"
         justifyContent="space-between"
         spacing={2}
-        sx={{ mb: 2.5 }}
+        sx={{ mb: interactive ? 2.5 : 1.5, flexShrink: 0 }}
       >
         <Box sx={{ flex: 1, textAlign: "left" }}>
           <Typography
             sx={{
               fontSize: interactive
                 ? "clamp(1.7rem, 3.2vw, 2.6rem)"
-                : "clamp(1.8rem, 2.6vw, 2.7rem)",
+                : "clamp(1.45rem, 2vw, 2.2rem)",
               fontWeight: 700,
               textShadow: "0 8px 24px rgba(0,0,0,0.35)",
               lineHeight: 1.08,
@@ -151,7 +160,7 @@ export default function ElectricVehiclesExperience({
               textAlign: "left",
               fontSize: interactive
                 ? "clamp(0.92rem, 1.4vw, 1.1rem)"
-                : "clamp(0.9rem, 1.2vw, 1rem)",
+                : "clamp(0.78rem, 0.95vw, 0.92rem)",
             }}
           >
             {t.subtitle}
@@ -163,8 +172,8 @@ export default function ElectricVehiclesExperience({
             bgcolor: "#1D9E75",
             color: "#fff",
             fontWeight: 700,
-            fontSize: "clamp(0.92rem, 1.05vw, 1.1rem)",
-            minWidth: "clamp(72px, 6vw, 108px)",
+            fontSize: interactive ? "clamp(0.92rem, 1.05vw, 1.1rem)" : "clamp(0.82rem, 0.95vw, 1rem)",
+            minWidth: interactive ? "clamp(72px, 6vw, 108px)" : "clamp(68px, 5vw, 92px)",
             boxShadow: "0 12px 24px rgba(29,158,117,0.35)",
           }}
         />
@@ -173,44 +182,49 @@ export default function ElectricVehiclesExperience({
       <Box
         sx={{
           position: "relative",
-          borderRadius: "28px",
+          borderRadius: interactive ? "28px" : 0,
           overflow: "hidden",
-          border: interactive
-            ? "1px solid rgba(255,255,255,0.1)"
-            : "1px solid rgba(255,255,255,0.05)",
-          boxShadow: interactive
-            ? "0 30px 60px rgba(0,0,0,0.28)"
-            : "0 10px 22px rgba(0,0,0,0.1)",
-          bgcolor: "rgba(255,255,255,0.05)",
-          backdropFilter: "blur(10px)",
+          border: interactive ? "1px solid rgba(255,255,255,0.1)" : "none",
+          boxShadow: interactive ? "0 30px 60px rgba(0,0,0,0.28)" : "none",
+          bgcolor: interactive ? "rgba(255,255,255,0.05)" : "transparent",
+          backdropFilter: interactive ? "blur(10px)" : "none",
+          flex: interactive ? "0 0 auto" : "1 1 auto",
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <Box
           sx={{
-            p: "clamp(18px, 2vw, 28px)",
-            background:
-              "linear-gradient(180deg, rgba(11,40,18,0.72) 0%, rgba(9,86,25,0.62) 52%, rgba(21,122,57,0.46) 100%)",
+            p: interactive ? "clamp(18px, 2vw, 28px)" : "clamp(14px, 1.4vw, 18px)",
+            background: interactive
+              ? "linear-gradient(135deg, rgba(11,40,18,0.92) 0%, rgba(9,86,25,0.82) 52%, rgba(21,122,57,0.68) 100%)"
+              : "transparent",
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
           }}
         >
           <Stack
             direction={{ xs: "column", md: "row" }}
-            spacing="clamp(18px, 2vw, 28px)"
+            spacing={interactive ? "clamp(18px, 2vw, 28px)" : "clamp(12px, 1vw, 18px)"}
             alignItems="stretch"
+            sx={{ width: "100%", minHeight: 0 }}
           >
             <Box
               sx={{
-                flex: { xs: "unset", md: "0 0 clamp(190px, 20vw, 250px)" },
+                flex: { xs: "unset", md: interactive ? "0 0 clamp(190px, 20vw, 250px)" : "0 0 clamp(150px, 15vw, 210px)" },
                 width: { xs: "100%", md: "auto" },
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
-                minHeight: "clamp(220px, 28vw, 320px)",
+                minHeight: interactive ? "clamp(220px, 28vw, 320px)" : "clamp(180px, 20vw, 270px)",
               }}
             >
               <Box
                 sx={{
                   position: "relative",
-                  width: "clamp(230px, 24vw, 320px)",
+                  width: interactive ? "clamp(230px, 24vw, 320px)" : "clamp(150px, 15vw, 240px)",
                   aspectRatio: "168 / 344",
                   filter: "drop-shadow(0 18px 30px rgba(0,0,0,0.2))",
                 }}
@@ -260,7 +274,7 @@ export default function ElectricVehiclesExperience({
               spacing="clamp(16px, 1.8vw, 26px)"
               sx={{
                 flex: 1,
-                minHeight: "clamp(220px, 28vw, 320px)",
+                minHeight: interactive ? "clamp(220px, 28vw, 320px)" : "clamp(180px, 20vw, 270px)",
                 justifyContent: "space-between",
               }}
             >
@@ -288,7 +302,7 @@ export default function ElectricVehiclesExperience({
                 <Typography
                   sx={{
                     mt: 0.8,
-                    fontSize: "clamp(1.5rem, 2.5vw, 2.6rem)",
+                    fontSize: interactive ? "clamp(1.5rem, 2.5vw, 2.6rem)" : "clamp(1.2rem, 1.8vw, 2rem)",
                     fontWeight: 700,
                     color: "#8DF0C7",
                   }}
@@ -312,6 +326,7 @@ export default function ElectricVehiclesExperience({
                   }
                   sx={{
                     mt: 1.4,
+                    py: interactive ? undefined : 0.3,
                     bgcolor: metrics.previous
                       ? metrics.changePercent >= 0
                         ? "rgba(225,245,238,0.94)"
@@ -417,13 +432,14 @@ export default function ElectricVehiclesExperience({
                     alignItems: "flex-end",
                     gap: "clamp(3px, 0.3vw, 6px)",
                     height: "clamp(48px, 6vw, 68px)",
+                    minHeight: 0,
                   }}
                 >
                   {EV_DATA.map((item, index) => {
                     const height = Math.max(
-                      10,
+                      16,
                       Math.round(
-                        (Math.log(item.count) / Math.log(EV_DATA[EV_DATA.length - 1].count)) * 54
+                        (Math.log(item.count) / Math.log(EV_DATA[EV_DATA.length - 1].count)) * 68
                       )
                     );
                     const bg =
@@ -451,7 +467,7 @@ export default function ElectricVehiclesExperience({
           </Stack>
         </Box>
 
-        <Box sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Box sx={{ p: interactive ? { xs: 2, md: 2.5 } : { xs: 1.5, md: 1.75 }, flexShrink: 0 }}>
           {showSlider && (
             <Stack spacing={1.2} sx={{ mb: 2.5 }}>
               <Box
@@ -522,11 +538,12 @@ export default function ElectricVehiclesExperience({
                 key={item.label}
                 sx={{
                   p: 1.5,
+                  minHeight: interactive ? undefined : "clamp(74px, 8vw, 94px)",
                   borderRadius: "18px",
-                  bgcolor: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  bgcolor: interactive ? "rgba(255,255,255,0.08)" : "#2B3F39",
+                  border: interactive ? "1px solid rgba(255,255,255,0.12)" : "1px solid #3D5750",
                   textAlign: "center",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                  boxShadow: interactive ? "inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
                 }}
               >
                 <Typography variant="caption" sx={{ color: "rgba(246,252,246,0.72)" }}>
