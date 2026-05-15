@@ -38,6 +38,9 @@ import CMSBackgroundManager from "../components/CMSBackgroundManager";
 import { Tabs, Tab } from "@mui/material";
 import useWebSocketController from "@/hooks/useWebSocketController";
 import CategoryManager from "./CategoryManager";
+import StrategyForecastManager from "./StrategyForecastManager";
+import ElectricVehiclesManager from "./ElectricVehiclesManager";
+import MapManager from "./MapManager";
 import { normalizeSlug } from "@/utils/slugify";
 
 const CMS_TAB_STORAGE_KEY = "cmsActiveTab";
@@ -48,7 +51,7 @@ function readStoredCmsTab() {
     const raw = sessionStorage.getItem(CMS_TAB_STORAGE_KEY);
     if (raw == null) return 0;
     const n = Number.parseInt(raw, 10);
-    return n >= 0 && n <= 2 ? n : 0;
+    return n >= 0 && n <= 5 ? n : 0;
   } catch {
     return 0;
   }
@@ -76,6 +79,25 @@ const ProgressOverlay = ({ progress }) => (
     <Typography variant="caption" sx={{ color: "white", mt: 1, fontWeight: "bold" }}>
       {progress}%
     </Typography>
+  </Box>
+);
+
+const CmsPlaceholderPanel = ({ title, description }) => (
+  <Box
+    sx={{
+      mt: 3,
+      maxWidth: "900px",
+      mx: "auto",
+      p: 4,
+      border: "1px dashed #ccc",
+      borderRadius: 2,
+      bgcolor: "#fafafa",
+    }}
+  >
+    <Typography variant="h5" fontWeight="bold" sx={{ mb: 1.5 }}>
+      {title}
+    </Typography>
+    <Typography color="text.secondary">{description}</Typography>
   </Box>
 );
 
@@ -186,6 +208,11 @@ export default function CMSPage() {
       mediaTitle: "Title",
       mediaSlug: "Slug",
       slugInvalid: "Slug must contain only letters, numbers, and hyphens (at least 2 characters).",
+      strategyForecast: "Strategy Forecast",
+      electricVehicles: "Electric Vehicles",
+      map: "Map",
+      tabPlaceholder:
+        "This CMS section has been added and is ready for its dedicated configuration UI.",
     },
     ar: {
       adminDashboard: "لوحة التحكم",
@@ -253,6 +280,11 @@ export default function CMSPage() {
       mediaTitle: "العنوان",
       mediaSlug: "المعرّف",
       slugInvalid: "يجب أن يحتوي المعرّف على أحرف وأرقام وشرطات فقط (حرفان على الأقل).",
+      strategyForecast: "التوقعات الاستراتيجية",
+      electricVehicles: "المركبات الكهربائية",
+      map: "الخريطة",
+      tabPlaceholder:
+        "تمت إضافة هذا القسم إلى نظام إدارة المحتوى وهو جاهز لواجهة الإعداد المخصصة.",
     },
   };
 
@@ -777,6 +809,9 @@ export default function CMSPage() {
           <Tab label={t.backgroundManager} />
           <Tab label={t.categoryManager} />
           <Tab label={t.mediaManager} />
+          <Tab label={t.strategyForecast} />
+          <Tab label={t.electricVehicles} />
+          <Tab label={t.map} />
         </Tabs>
       </Box>
 
@@ -1001,6 +1036,12 @@ export default function CMSPage() {
           </Box>
         </Box>
       )}
+
+      {activeTab === 3 && <StrategyForecastManager />}
+
+      {activeTab === 4 && <ElectricVehiclesManager />}
+
+      {activeTab === 5 && <MapManager />}
 
       {/* Exit Confirmation */}
       <ConfirmationDialog

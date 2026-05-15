@@ -8,8 +8,9 @@ export default function useWebSocketController() {
   const [categoryOptions, setCategoryOptions] = useState({});
   const [categoryTree, setCategoryTree] = useState(null);
   const [connected, setConnected] = useState(false);
-  /** Latest media list for the selected leaf category (from server). */
   const [leafMedia, setLeafMedia] = useState(null);
+  const [currentExperience, setCurrentExperience] = useState(null);
+  const [currentExperienceState, setCurrentExperienceState] = useState(null);
 
   useEffect(() => {
     const websocketHost = getWebSocketHost();
@@ -23,30 +24,44 @@ export default function useWebSocketController() {
     });
 
     socketInstance.on("connect", () => {
-      console.log("✅ Connected to WebSocket Server (Kiosk)", socketInstance.id);
+      console.log("Connected to WebSocket Server (Kiosk)", socketInstance.id);
       setConnected(true);
       socketInstance.emit("register", "kiosk");
       socketInstance.emit("getCategoryOptions");
     });
 
     socketInstance.on("disconnect", () => {
-      console.log("❌ Disconnected from server");
+      console.log("Disconnected from server");
       setConnected(false);
     });
 
     socketInstance.on("categoryOptions", (data) => {
-      console.log("📂 Received category options", data);
+      console.log("Received category options", data);
       setCategoryOptions(data);
     });
 
     socketInstance.on("categoryTree", (tree) => {
-      console.log("📂 Received category tree", tree);
+      console.log("Received category tree", tree);
       setCategoryTree(tree);
     });
 
     socketInstance.on("categoryMediaList", (payload) => {
-      console.log("📋 categoryMediaList", payload);
-      setLeafMedia(payload && Array.isArray(payload.items) ? payload : { items: [], leafId: null, categoryPath: [] });
+      console.log("categoryMediaList", payload);
+      setLeafMedia(
+        payload && Array.isArray(payload.items)
+          ? payload
+          : { items: [], leafId: null, categoryPath: [] }
+      );
+    });
+
+    socketInstance.on("displayExperience", (payload) => {
+      console.log("displayExperience", payload);
+      setCurrentExperience(payload || null);
+    });
+
+    socketInstance.on("experienceStateChanged", (payload) => {
+      console.log("experienceStateChanged", payload);
+      setCurrentExperienceState(payload || null);
     });
 
     setSocket(socketInstance);
@@ -81,7 +96,12 @@ export default function useWebSocketController() {
     }
   }, [socket]);
 
-  /** Ask server to re-send categoryOptions + categoryTree (e.g. after CMS category CRUD). */
+  const sendExperienceState = useCallback((type, state) => {
+    if (socket) {
+      socket.emit("updateExperienceState", { type, state });
+    }
+  }, [socket]);
+
   const requestCategoryReload = useCallback(() => {
     if (socket?.connected) {
       socket.emit("getCategoryOptions");
@@ -96,7 +116,10 @@ export default function useWebSocketController() {
     categoryOptions,
     categoryTree,
     leafMedia,
+    currentExperience,
+    currentExperienceState,
     sendCarbonMode,
+    sendExperienceState,
     requestCategoryReload,
   };
 }

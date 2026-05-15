@@ -1,18 +1,15 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Box, Typography, Button } from "@mui/material";
+import { Box, Typography, Button, Slider, Stack, Chip } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
 import { motion } from "framer-motion";
-import { Aurora } from "ambient-cbg";
-import { useTheme } from "@mui/material/styles";
 import useWebSocketController from "@/hooks/useWebSocketController";
 import LanguageSelector from "@/app/components/LanguageSelector";
 import { useLanguage } from "../context/LanguageContext";
+import MapEmbedExperience from "@/app/components/MapEmbedExperience";
 
 export default function Controller() {
-  const router = useRouter();
   const {
     sendCategorySelection,
     sendSelectMedia,
@@ -22,11 +19,13 @@ export default function Controller() {
     sendCarbonMode,
     connected,
     leafMedia,
+    currentExperience,
+    currentExperienceState,
+    sendExperienceState,
   } = useWebSocketController();
   const { language } = useLanguage();
   const languageRef = useRef(language);
   languageRef.current = language;
-  const theme = useTheme();
 
   const [openCategory, setOpenCategory] = useState(null);
   const [selected, setSelected] = useState({ category: "", subcategory: "" });
@@ -65,6 +64,230 @@ export default function Controller() {
         if (found) return found;
       }
     }
+    return null;
+  };
+
+  const getCategoryExperienceType = (node) => {
+    if (node?.metadata?.strategyForecast?.enabled) return "strategy-forecast";
+    if (node?.metadata?.electricVehicles?.enabled) return "electric-vehicles";
+    if (node?.metadata?.mapEmbed?.enabled) return "map-embed";
+    return null;
+  };
+
+  const isExperienceNode = (node) => Boolean(getCategoryExperienceType(node));
+
+  const renderExperienceComponent = (experienceType, state, isInteractive = true) => {
+    if (isInteractive) {
+      if (experienceType === "strategy-forecast") {
+        const progress = Math.max(
+          0,
+          Math.min(100, Number(state?.progress ?? currentExperience?.config?.defaultProgress ?? 0) || 0)
+        );
+        const year = Math.round(2030 + (20 * progress) / 100);
+        return (
+          <Box
+            sx={{
+              width: "min(92vw, 760px)",
+              mx: "auto",
+              p: { xs: 3, md: 4 },
+              borderRadius: "28px",
+              border: "1px solid rgba(248,252,246,0.14)",
+              background:
+                "linear-gradient(180deg, rgba(14,36,20,0.72) 0%, rgba(40,16,58,0.62) 100%)",
+              boxShadow: "0 25px 55px rgba(0,0,0,0.28)",
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            <Stack spacing={3}>
+              <Box>
+                <Typography
+                  sx={{
+                    color: "#F8FCF6",
+                    fontWeight: 700,
+                    fontSize: "clamp(1.6rem, 3vw, 2.4rem)",
+                    fontFamily: getMotionFontFamily(),
+                    textShadow: "0 8px 24px rgba(0,0,0,0.32)",
+                  }}
+                >
+                  {isArabic ? "التحكم في التوقعات الاستراتيجية" : "Strategy Forecast Control"}
+                </Typography>
+                <Typography
+                  sx={{
+                    mt: 0.75,
+                    color: "rgba(248,252,246,0.78)",
+                    fontSize: "clamp(0.95rem, 1.4vw, 1.05rem)",
+                  }}
+                >
+                  {isArabic
+                    ? "حرّك المؤشر لتحديث العرض الرئيسي على الشاشة الكبيرة."
+                    : "Move the slider to update the live output on the big screen."}
+                </Typography>
+              </Box>
+
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Chip
+                  label={isArabic ? `السنة ${year}` : `Year ${year}`}
+                  sx={{
+                    bgcolor: "rgba(67,180,85,0.18)",
+                    color: "#F8FCF6",
+                    border: "1px solid rgba(67,180,85,0.4)",
+                    fontWeight: 700,
+                  }}
+                />
+                <Typography sx={{ color: "#8DF0C7", fontWeight: 700, fontSize: "clamp(1rem, 1.8vw, 1.25rem)" }}>
+                  {progress}%
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Typography variant="caption" sx={{ color: "rgba(248,252,246,0.82)", minWidth: 40 }}>
+                  2030
+                </Typography>
+                <Slider
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={progress}
+                  onChange={(_, value) =>
+                    sendExperienceState("strategy-forecast", {
+                      progress: Array.isArray(value) ? value[0] : value,
+                    })
+                  }
+                  aria-label="strategy forecast controller slider"
+                  sx={{
+                    color: "#1D9E75",
+                    "& .MuiSlider-thumb": { width: 20, height: 20 },
+                    "& .MuiSlider-track": { border: "none" },
+                    "& .MuiSlider-rail": { bgcolor: "rgba(255,255,255,0.22)" },
+                  }}
+                />
+                <Typography variant="caption" sx={{ color: "rgba(248,252,246,0.82)", minWidth: 40 }}>
+                  2050
+                </Typography>
+              </Stack>
+            </Stack>
+          </Box>
+        );
+      }
+
+      if (experienceType === "electric-vehicles") {
+        const yearIndex = Math.max(
+          0,
+          Math.min(9, Math.round(Number(state?.yearIndex ?? currentExperience?.config?.defaultYearIndex ?? 9) || 0))
+        );
+        const selectedYear = 2017 + yearIndex;
+        return (
+          <Box
+            sx={{
+              width: "min(92vw, 760px)",
+              mx: "auto",
+              p: { xs: 3, md: 4 },
+              borderRadius: "28px",
+              border: "1px solid rgba(248,252,246,0.14)",
+              background:
+                "linear-gradient(180deg, rgba(14,36,20,0.72) 0%, rgba(12,64,37,0.62) 100%)",
+              boxShadow: "0 25px 55px rgba(0,0,0,0.28)",
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            <Stack spacing={3}>
+              <Box>
+                <Typography
+                  sx={{
+                    color: "#F8FCF6",
+                    fontWeight: 700,
+                    fontSize: "clamp(1.6rem, 3vw, 2.4rem)",
+                    fontFamily: getMotionFontFamily(),
+                    textShadow: "0 8px 24px rgba(0,0,0,0.32)",
+                  }}
+                >
+                  {isArabic ? "التحكم في المركبات الكهربائية" : "Electric Vehicles Control"}
+                </Typography>
+                <Typography
+                  sx={{
+                    mt: 0.75,
+                    color: "rgba(248,252,246,0.78)",
+                    fontSize: "clamp(0.95rem, 1.4vw, 1.05rem)",
+                  }}
+                >
+                  {isArabic
+                    ? "اختر السنة لتحديث خريطة النمو والإحصاءات على الشاشة الكبيرة."
+                    : "Choose the year to update the growth map and stats on the big screen."}
+                </Typography>
+              </Box>
+
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Chip
+                  label={isArabic ? `السنة ${selectedYear}` : `Year ${selectedYear}`}
+                  sx={{
+                    bgcolor: "rgba(67,180,85,0.18)",
+                    color: "#F8FCF6",
+                    border: "1px solid rgba(67,180,85,0.4)",
+                    fontWeight: 700,
+                  }}
+                />
+                <Typography sx={{ color: "#8DF0C7", fontWeight: 700, fontSize: "clamp(1rem, 1.8vw, 1.25rem)" }}>
+                  {selectedYear}
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Typography variant="caption" sx={{ color: "rgba(248,252,246,0.82)", minWidth: 40 }}>
+                  2017
+                </Typography>
+                <Slider
+                  min={0}
+                  max={9}
+                  step={1}
+                  value={yearIndex}
+                  onChange={(_, value) =>
+                    sendExperienceState("electric-vehicles", {
+                      yearIndex: Array.isArray(value) ? value[0] : value,
+                    })
+                  }
+                  aria-label="electric vehicles controller slider"
+                  sx={{
+                    color: "#1D9E75",
+                    "& .MuiSlider-thumb": { width: 20, height: 20 },
+                    "& .MuiSlider-track": { border: "none" },
+                    "& .MuiSlider-rail": { bgcolor: "rgba(255,255,255,0.22)" },
+                  }}
+                />
+                <Typography variant="caption" sx={{ color: "rgba(248,252,246,0.82)", minWidth: 40 }}>
+                  2026
+                </Typography>
+              </Stack>
+            </Stack>
+          </Box>
+        );
+      }
+
+      if (experienceType === "map-embed") {
+        return (
+          <MapEmbedExperience
+            language={language}
+            interactive
+            embedUrl={currentExperience?.config?.embedUrl || ""}
+            qrImageUrl={currentExperience?.config?.qrImageUrl || ""}
+            qrPosition={currentExperience?.config?.qrPosition}
+            qrSize={currentExperience?.config?.qrSize}
+          />
+        );
+      }
+    }
+
+    if (experienceType === "strategy-forecast") {
+      return null;
+    }
+
+    if (experienceType === "electric-vehicles") {
+      return null;
+    }
+
+    if (experienceType === "map-embed") {
+      return null;
+    }
+
     return null;
   };
 
@@ -156,11 +379,21 @@ export default function Controller() {
     if (categoryTree && nodeId) {
       const node = findNodeById(categoryTree, nodeId);
       if (!node) return;
+      const path = findPathToNode(categoryTree, nodeId) || [];
+
+      if (isExperienceNode(node)) {
+        setSelectedPath(path);
+        setSelectedLeafId(nodeId);
+        setSelected({ category: node.name?.en || "", subcategory: "" });
+        sendCategorySelection(null, null, language, path);
+        setOpenCategoryNode(node.children && node.children.length ? nodeId : null);
+        return;
+      }
+
       if (node.children && node.children.length) {
         setOpenCategoryNode(nodeId);
         setSelectedPath([]);
       } else {
-        const path = findPathToNode(categoryTree, nodeId) || [];
         setSelectedPath(path);
         setSelected({ category: node.name?.en || "", subcategory: "" });
         sendCategorySelection(null, null, language, path);
@@ -192,13 +425,22 @@ export default function Controller() {
     if (categoryTree && nodeId) {
       const node = findNodeById(categoryTree, nodeId);
       if (!node) return;
+      const path = findPathToNode(categoryTree, nodeId) || [];
+
+      if (isExperienceNode(node)) {
+        setSelectedPath(path);
+        setSelectedLeafId(nodeId);
+        setSelected({ category: node?.name?.en || category, subcategory: "" });
+        sendCategorySelection(null, null, language, path);
+        return;
+      }
+
       if (node.children && node.children.length) {
         setOpenCategoryNode(nodeId);
         setSelectedLeafId(null);
         return;
       }
 
-      const path = findPathToNode(categoryTree, nodeId) || [];
       setSelectedPath(path);
       setSelectedLeafId(nodeId);
       setSelected({ category: node?.name?.en || category, subcategory: "" });
@@ -233,6 +475,25 @@ export default function Controller() {
           label: key,
           children: (value || []).map((item) => ({ id: null, label: item })),
         }));
+
+  const rootExperienceActive =
+    Boolean(currentExperience?.type) &&
+    selectedLeafId &&
+    categoryTree &&
+    (() => {
+      const selectedNode = findNodeById(categoryTree, selectedLeafId);
+      return Boolean(selectedNode && !selectedNode.parent);
+    })();
+
+  const resetToRoot = () => {
+    setOpenCategory(null);
+    setSelected({ category: "", subcategory: "" });
+    setSelectedPath([]);
+    setOpenCategoryNode(null);
+    setSelectedLeafId(null);
+    setSelectedMediaSlug(null);
+    sendCategorySelection("", "", language);
+  };
 
   return (
     <Box
@@ -327,61 +588,88 @@ export default function Controller() {
           py: { xs: "6rem", md: "8rem" },
           position: "relative"
         }}>
-          <Typography
-            variant="h2"
-            dir={isArabic ? "rtl" : "ltr"}
-            sx={{
-              color: "#ffffff",
-              fontWeight: "bold",
-              mb: { xs: "2rem", md: "4rem" },
-              fontSize: { xs: "2rem", sm: "3rem", md: "3.75rem" },
-              textAlign: "center",
-              px: 2,
-              fontFamily: getMotionFontFamily(),
-              textShadow: "2px 2px 4px rgba(0,0,0,0.5)"
-            }}
-          >
-            {translations[language].roadmapHeading}
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: { xs: "1.5rem", md: "4rem" } }}>
-            {displayCategories.map((cat) => {
-              const category = cat.label;
-            const subcategories = (cat.children || []).map((child) => child.label);
-            const isActiveMain = selected.category === category && !selected.subcategory;
-
-            return (
-              <motion.div
-                key={category}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                animate={isActiveMain ? { scale: 1.1, rotate: [0, 2, -2, 0] } : {}}
-                transition={{ duration: 0.5 }}
-                style={{
-                  ...bubbleBase,
-                  zIndex: 3,
-                  backgroundImage: isActiveMain
-                    ? "linear-gradient(145deg, #1C932D 0%, #43B455 52%, #390042 100%)"
-                    : bubbleBase.backgroundImage,
-                  boxShadow: isActiveMain
-                    ? "0 0 28px rgba(28, 147, 45, 0.55)"
-                    : bubbleBase.boxShadow,
+          {!rootExperienceActive && (
+            <Typography
+              variant="h2"
+              dir={isArabic ? "rtl" : "ltr"}
+              sx={{
+                color: "#ffffff",
+                fontWeight: "bold",
+                mb: { xs: "2rem", md: "4rem" },
+                fontSize: { xs: "2rem", sm: "3rem", md: "3.75rem" },
+                textAlign: "center",
+                px: 2,
+                fontFamily: getMotionFontFamily(),
+                textShadow: "2px 2px 4px rgba(0,0,0,0.5)"
+              }}
+            >
+              {translations[language].roadmapHeading}
+            </Typography>
+          )}
+          {rootExperienceActive ? (
+            <>
+            <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
+              <Button
+                variant="contained"
+                onClick={resetToRoot}
+                sx={{
+                  backgroundColor: "rgba(248,252,246,0.92)",
+                  color: "#07280B",
+                  minWidth: 0,
+                  width: 50,
+                  height: 50,
+                  borderRadius: "50%",
+                  "&:hover": { backgroundColor: "rgba(248,252,246,1)" },
                 }}
-                 onClick={() => handleCategoryClick(category, subcategories, cat.id)}
               >
-                {cat.icon && (
-                  <Box
-                    component="img"
-                    src={cat.icon}
-                    sx={{ width: { xs: "3rem", md: "6rem" }, height: { xs: "3rem", md: "6rem" }, mb: { xs: 1, md: 2 }, objectFit: "contain", borderRadius: "0.75rem" }}
-                  />
-                )}
-                <Typography sx={{ fontWeight: "bold", fontSize: "clamp(1rem, 3vw, 1.5rem)", px: { xs: 1, md: 2 } }}>
-                  {category}
-                </Typography>
-              </motion.div>
-            );
-          })}
-          </Box>
+                <ArrowBackIcon />
+              </Button>
+            </Box>
+            <Box sx={{ width: "min(92vw, 1040px)", mt: { xs: 2, md: 4 } }}>
+              {renderExperienceComponent(currentExperience?.type, currentExperienceState, true)}
+            </Box>
+            </>
+          ) : (
+            <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: { xs: "1.5rem", md: "4rem" } }}>
+              {displayCategories.map((cat) => {
+                const category = cat.label;
+                const subcategories = (cat.children || []).map((child) => child.label);
+                const isActiveMain = selected.category === category && !selected.subcategory;
+
+                return (
+                  <motion.div
+                    key={category}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    animate={isActiveMain ? { scale: 1.1, rotate: [0, 2, -2, 0] } : {}}
+                    transition={{ duration: 0.5 }}
+                    style={{
+                      ...bubbleBase,
+                      zIndex: 3,
+                      backgroundImage: isActiveMain
+                        ? "linear-gradient(145deg, #1C932D 0%, #43B455 52%, #390042 100%)"
+                        : bubbleBase.backgroundImage,
+                      boxShadow: isActiveMain
+                        ? "0 0 28px rgba(28, 147, 45, 0.55)"
+                        : bubbleBase.boxShadow,
+                    }}
+                    onClick={() => handleCategoryClick(category, subcategories, cat.id)}
+                  >
+                    {cat.icon && (
+                      <Box
+                        component="img"
+                        src={cat.icon}
+                        sx={{ width: { xs: "3rem", md: "6rem" }, height: { xs: "3rem", md: "6rem" }, mb: { xs: 1, md: 2 }, objectFit: "contain", borderRadius: "0.75rem" }}
+                      />
+                    )}
+                    <Typography sx={{ fontWeight: "bold", fontSize: "clamp(1rem, 3vw, 1.5rem)", px: { xs: 1, md: 2 } }}>
+                      {category}
+                    </Typography>
+                  </motion.div>
+                );
+              })}
+            </Box>
+          )}
         </Box>
       ) : (
         (() => {
@@ -417,6 +705,10 @@ export default function Controller() {
                 position: "relative",
               }}
             >
+              {!(
+                currentExperience?.type &&
+                String(currentExperience.categoryId) === String(selectedLeafId)
+              ) && (
               <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
                 <Button
                   variant="contained"
@@ -457,7 +749,12 @@ export default function Controller() {
                   <ArrowBackIcon />
                 </Button>
               </Box>
+              )}
 
+              {!(
+                currentExperience?.type &&
+                String(currentExperience.categoryId) === String(selectedLeafId)
+              ) && (
               <Typography
                 dir={isArabic ? "rtl" : "ltr"}
                 sx={{
@@ -474,6 +771,7 @@ export default function Controller() {
               >
                 {slugGridActive ? getNodeLabel(leafChildMatch) : getNodeLabel(node)}
               </Typography>
+              )}
 
               <Box
                 sx={{
@@ -494,6 +792,38 @@ export default function Controller() {
                     leafSelectedUnderThisNode &&
                     leafMedia &&
                     String(leafMedia.leafId) === String(selectedLeafId);
+                  const activeExperienceForLeaf =
+                    currentExperience?.type &&
+                    String(currentExperience.categoryId) === String(selectedLeafId);
+
+                  if (activeExperienceForLeaf) {
+                    return (
+                      <Box key={currentExperience.type} sx={{ width: "min(92vw, 1040px)" }}>
+                        <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
+                          <Button
+                            variant="contained"
+                            onClick={() => {
+                              setSelectedLeafId(null);
+                              setOpenCategoryNode(node._id);
+                              sendCategorySelection("", "", language);
+                            }}
+                            sx={{
+                              backgroundColor: "rgba(248,252,246,0.92)",
+                              color: "#07280B",
+                              minWidth: 0,
+                              width: 50,
+                              height: 50,
+                              borderRadius: "50%",
+                              "&:hover": { backgroundColor: "rgba(248,252,246,1)" },
+                            }}
+                          >
+                            <ArrowBackIcon />
+                          </Button>
+                        </Box>
+                        {renderExperienceComponent(currentExperience.type, currentExperienceState, true)}
+                      </Box>
+                    );
+                  }
 
                   if (showLeafMediaOnly) {
                     if (leafMedia.items.length === 0) {

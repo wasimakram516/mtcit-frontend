@@ -7,6 +7,9 @@ import { FourSquare } from "react-loading-indicators";
 import { motion } from "framer-motion";
 import CloudsBackground from "@/app/components/CloudsBackground";
 import DynamicBackground from "../components/DynamicBackground";
+import StrategyForecastExperience from "@/app/components/StrategyForecastExperience";
+import ElectricVehiclesExperience from "@/app/components/ElectricVehiclesExperience";
+import MapEmbedExperience from "@/app/components/MapEmbedExperience";
 
 /** Layer X/Y/size are 0–100% of the media-stage box; keep rect inside so nothing spills past that frame. */
 function getMediaLayerRect(position, size) {
@@ -23,6 +26,8 @@ export default function BigScreenPage() {
   const router = useRouter();
   const {
     currentMedia,
+    currentExperience,
+    currentExperienceState,
     isLoading,
     currentLanguage,
     allMedia,
@@ -96,6 +101,54 @@ export default function BigScreenPage() {
   const zStageMediaBgLayers = 1;
   const zStageForeground = 10;
   const zStagePinpoint = 100;
+
+  const renderExperience = () => {
+    if (currentExperience?.type === "strategy-forecast") {
+      return (
+        <StrategyForecastExperience
+          language={currentLanguage}
+          progress={
+            currentExperienceState?.progress ??
+            currentExperience?.config?.defaultProgress ??
+            0
+          }
+          interactive={false}
+          showBackButton={false}
+          showSlider={false}
+        />
+      );
+    }
+
+    if (currentExperience?.type === "electric-vehicles") {
+      return (
+        <ElectricVehiclesExperience
+          language={currentLanguage}
+          yearIndex={
+            currentExperienceState?.yearIndex ??
+            currentExperience?.config?.defaultYearIndex ??
+            9
+          }
+          interactive={false}
+          showSlider={false}
+        />
+      );
+    }
+
+    if (currentExperience?.type === "map-embed") {
+      return (
+        <MapEmbedExperience
+          language={currentLanguage}
+          interactive={false}
+          embedUrl={currentExperience?.config?.embedUrl || ""}
+          qrImageUrl={currentExperience?.config?.qrImageUrl || ""}
+          qrPosition={currentExperience?.config?.qrPosition}
+          qrSize={currentExperience?.config?.qrSize}
+        />
+      );
+    }
+
+    return null;
+  };
 
   return (
     <Box
@@ -314,7 +367,7 @@ export default function BigScreenPage() {
           )}
 
           {/* Idle cover — shown when no media is selected */}
-          {!showBlockingLoader && !currentMedia && (
+          {!showBlockingLoader && !currentMedia && !currentExperience && (
             <Box sx={{ position: "relative", width: "100%", height: "90%" }}>
               <Box
                 component="img"
@@ -330,8 +383,27 @@ export default function BigScreenPage() {
             </Box>
           )}
 
+          {!showBlockingLoader && currentExperience && (
+            <Box
+              sx={{
+                width: "90%",
+                height: "90%",
+                maxWidth: "clamp(640px, 90%, 2400px)",
+                maxHeight: "clamp(360px, 90%, 1400px)",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                px: "clamp(8px, 0.8vw, 18px)",
+                py: "clamp(8px, 0.8vh, 18px)",
+              }}
+            >
+              {renderExperience()}
+            </Box>
+          )}
+
           {/* 70% centered media content layers container (above background, below pinpoint) */}
-          {currentMedia && (() => {
+          {currentMedia && !currentExperience && (() => {
             const mediaLayerList = [...(currentMedia.mediaLayers || [])].sort(
               (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
             );
