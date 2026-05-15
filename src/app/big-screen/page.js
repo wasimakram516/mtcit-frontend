@@ -344,13 +344,24 @@ export default function BigScreenPage() {
 
             if (mediaLayerList.length === 0) return null;
 
+            const isLayerFullFrame = (layer) => {
+              const { x, y, width, height } = getMediaLayerRect(layer?.position, layer?.size);
+              return (
+                x === 0 &&
+                y === 0 &&
+                width === 100 &&
+                height === 100 &&
+                Number(layer?.rotation || 0) === 0
+              );
+            };
+
             return (
               <Box
                 sx={{
                   position: "relative",
-                  width: "70%",
-                  height: "70%", // Needs height so absolute children don't collapse
-                  maxWidth: "clamp(320px, 70%, 1800px)",
+                  width: "100%",
+                  height: "100%", // Needs height so absolute children don't collapse
+                  maxWidth: "100%",
                   flexShrink: 0,
                   overflow: "hidden",
                   borderRadius: stageRadius,
@@ -387,16 +398,8 @@ export default function BigScreenPage() {
 
                     if (!src || layer.isActive === false) return null;
 
-                    const { x: posX, y: posY, width: sizeW, height: sizeH } = getMediaLayerRect(
-                      layer.position,
-                      layer.size
-                    );
-                    const fillsMediaFrame =
-                      posX === 0 &&
-                      posY === 0 &&
-                      sizeW === 100 &&
-                      sizeH === 100 &&
-                      Number(layer.rotation || 0) === 0;
+                    const { x: posX, y: posY, width: sizeW, height: sizeH } = getMediaLayerRect(layer.position, layer.size);
+                    const fillsMediaFrame = isLayerFullFrame(layer);
 
                     return (
                       <Box
