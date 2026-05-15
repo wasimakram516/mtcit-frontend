@@ -31,6 +31,8 @@ export default function Controller() {
   const [selected, setSelected] = useState({ category: "", subcategory: "" });
   const [selectedPath, setSelectedPath] = useState([]);
   const [openCategoryNode, setOpenCategoryNode] = useState(null);
+  const [selectedLeafId, setSelectedLeafId] = useState(null);
+  const [selectedMediaSlug, setSelectedMediaSlug] = useState(null);
   const [mediaForLeaf, setMediaForLeaf] = useState(null);
 
   const isArabic = language === "ar";
@@ -521,6 +523,24 @@ export default function Controller() {
         <LanguageSelector absolute={false} />
       </Box>
 
+      {/* Top Left Forum Logo */}
+      <Box
+        component="img"
+        src="/gulf-green-mobility-forum.png"
+        alt="The Gulf Green Mobility Forum"
+        sx={{
+          position: "fixed",
+          top: { xs: "1rem", md: "1.35rem" },
+          left: { xs: "8rem", md: "14rem" },
+          width: { xs: "7rem", md: "11rem" },
+          height: "auto",
+          zIndex: 100,
+          objectFit: "contain",
+          filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.28))",
+          pointerEvents: "none",
+        }}
+      />
+
       {/* Top Right Logo */}
       <Box
         component="img"
@@ -795,50 +815,157 @@ export default function Controller() {
                           key="no-leaf-media"
                           dir={isArabic ? "rtl" : "ltr"}
                           sx={{
-                            display: "block",
-                            width: "auto",
-                            height: "3.2rem",
-                            maxWidth: "4rem",
-                            maxHeight: "3.6rem",
-                            mb: 1,
-                            objectFit: "contain",
-                            borderRadius: "0.5rem",
+                            color: "rgba(248,252,246,0.9)",
+                            fontSize: "1rem",
+                            maxWidth: "14rem",
+                            textAlign: "center",
+                            fontFamily: getMotionFontFamily(),
                           }}
-                        />
-                      )}
-                            <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
-                              {getNodeLabel(child)}
-                            </Typography>
-                            {(() => {
-                              const leafId = String(selectedPath?.[selectedPath.length - 1] || "");
-                              const childId = String(child._id || child.id || "");
-                              const isActiveChild =
-                                (leafId && leafId === childId) ||
-                                (selected.category && selected.subcategory && selected.category === (node.name?.en || "") && selected.subcategory === (child.name?.en || child.label || ""));
-                              return isActiveChild ? (
-                                <Box
-                                  sx={{
-                                    position: "absolute",
-                                    top: 8,
-                                    right: 8,
-                                    width: 26,
-                                    height: 26,
-                                    borderRadius: "999px",
-                                    bgcolor: "rgba(248, 252, 246, 0.95)",
-                                    color: "#1C932D",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
-                                  }}
-                                >
-                                  <CheckIcon sx={{ fontSize: 16 }} />
-                                </Box>
-                              ) : null;
-                            })()}
-                    </motion.div>
-                  );
-                })}
+                        >
+                          {translations[language].noMediaForCategory}
+                        </Typography>
+                      );
+                    }
+
+                    return leafMedia.items.map((row) => {
+                      const active = selectedMediaSlug === row.slug;
+                      return (
+                        <motion.div
+                          key={`media-${row.slug}`}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          animate={active ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
+                          transition={{ duration: 0.5 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sendSelectMedia(row.slug, language);
+                            setSelectedMediaSlug(row.slug);
+                          }}
+                          style={{
+                            ...bubbleBase,
+                            width: "10rem",
+                            height: "10rem",
+                            fontSize: "1rem",
+                            zIndex: 61,
+                            cursor: "pointer",
+                            position: "relative",
+                            backgroundImage: active
+                              ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
+                              : bubbleBase.backgroundImage,
+                            boxShadow: active ? "0 0 25px rgba(28, 147, 45, 0.65)" : bubbleBase.boxShadow,
+                          }}
+                        >
+                          <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
+                            {row.title}
+                          </Typography>
+                          {active && (
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                top: 6,
+                                right: 6,
+                                bgcolor: "rgba(0,0,0,0.35)",
+                                borderRadius: "50%",
+                                p: 0.25,
+                                display: "flex",
+                              }}
+                            >
+                              <CheckIcon sx={{ fontSize: 22, color: "#F8FCF6" }} />
+                            </Box>
+                          )}
+                        </motion.div>
+                      );
+                    });
+                  }
+
+                  return node.children.map((child) => {
+                    const hasChildren = child.children && child.children.length > 0;
+                    const isSelectedLeaf = selectedLeafId === child._id && !hasChildren;
+
+                    return (
+                      <motion.div
+                        key={child._id || child.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        animate={isSelectedLeaf ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
+                        transition={{ duration: 0.5 }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (hasChildren) {
+                            setOpenCategoryNode(child._id);
+                            setSelectedLeafId(null);
+                          } else {
+                            handleSubBubbleClick(
+                              node.name?.en || "",
+                              child.name?.en || child.label,
+                              child._id || child.id
+                            );
+                          }
+                        }}
+                        style={{
+                          ...bubbleBase,
+                          width: "10rem",
+                          height: "10rem",
+                          fontSize: "1rem",
+                          zIndex: 61,
+                          backgroundImage: isSelectedLeaf
+                            ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
+                            : bubbleBase.backgroundImage,
+                          boxShadow: isSelectedLeaf
+                            ? "0 0 25px rgba(28, 147, 45, 0.65)"
+                            : bubbleBase.boxShadow,
+                        }}
+                      >
+                        {child.icon && (
+                          <Box
+                            component="img"
+                            src={child.icon}
+                            sx={{
+                              width: "4rem",
+                              height: "4rem",
+                              mb: 1,
+                              objectFit: "contain",
+                              borderRadius: "0.5rem",
+                            }}
+                          />
+                        )}
+                        <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
+                          {getNodeLabel(child)}
+                        </Typography>
+                        {(() => {
+                          const leafId = String(selectedPath?.[selectedPath.length - 1] || "");
+                          const childId = String(child._id || child.id || "");
+                          const isActiveChild =
+                            (leafId && leafId === childId) ||
+                            (selected.category &&
+                              selected.subcategory &&
+                              selected.category === (node.name?.en || "") &&
+                              selected.subcategory === (child.name?.en || child.label || ""));
+                          return isActiveChild ? (
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                top: 8,
+                                right: 8,
+                                width: 26,
+                                height: 26,
+                                borderRadius: "999px",
+                                bgcolor: "rgba(248, 252, 246, 0.95)",
+                                color: "#1C932D",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
+                              }}
+                            >
+                              <CheckIcon sx={{ fontSize: 16 }} />
+                            </Box>
+                          ) : null;
+                        })()}
+                      </motion.div>
+                    );
+                  });
+                })()}
               </Box>
             </Box>
           );

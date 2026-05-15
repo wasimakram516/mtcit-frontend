@@ -68,6 +68,7 @@ export default function MapManager() {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const categories = useMemo(() => flattenCategories(tree), [tree]);
   const configuredMapCategories = useMemo(
@@ -98,6 +99,7 @@ export default function MapManager() {
       width: Number(config.qrSize?.width ?? 16),
       height: Number(config.qrSize?.height ?? 16),
     });
+    setIsFormOpen(true);
   };
 
   const resetFormForNewRecord = (path = []) => {
@@ -109,6 +111,7 @@ export default function MapManager() {
     setQrPosition({ x: 72, y: 74 });
     setQrSize({ width: 16, height: 16 });
     setMessage({ type: "", text: "" });
+    setIsFormOpen(true);
   };
 
   const load = async () => {
@@ -122,9 +125,20 @@ export default function MapManager() {
     const firstConfigured = flatCategories.find(
       (item) => item.metadata?.mapEmbed?.enabled && String(item.metadata?.mapEmbed?.embedUrl || "").trim()
     );
-    const resolvedCategory = matchedSelection || firstConfigured || flatCategories[0] || null;
-    setSelectedPath(resolvedCategory?.categoryPath || []);
-    applyCategoryConfig(resolvedCategory);
+    const resolvedCategory = matchedSelection || firstConfigured || null;
+    if (resolvedCategory) {
+      setSelectedPath(resolvedCategory.categoryPath || []);
+      applyCategoryConfig(resolvedCategory);
+    } else {
+      setSelectedPath([]);
+      setEmbedUrl("");
+      setQrFile(null);
+      setQrPreview("");
+      setRemoveQr(false);
+      setQrPosition({ x: 72, y: 74 });
+      setQrSize({ width: 16, height: 16 });
+      setIsFormOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -192,6 +206,14 @@ export default function MapManager() {
 
       await load();
       setMessage({ type: "success", text: "Map record saved." });
+      setSelectedPath([]);
+      setEmbedUrl("");
+      setQrFile(null);
+      setQrPreview("");
+      setRemoveQr(false);
+      setQrPosition({ x: 72, y: 74 });
+      setQrSize({ width: 16, height: 16 });
+      setIsFormOpen(false);
     } catch (error) {
       console.error(error);
       setMessage({ type: "error", text: "Failed to save map configuration." });
@@ -233,6 +255,7 @@ export default function MapManager() {
             </Button>
           </Box>
 
+          {isFormOpen && (
           <Box>
             {(() => {
               const getOptionsForLevel = (level) => {
@@ -294,13 +317,15 @@ export default function MapManager() {
               });
             })()}
           </Box>
+          )}
 
-          {selectedCategory && (
+          {isFormOpen && selectedCategory && (
             <Alert severity="info">
               Editing map record for: {selectedCategory.label}
             </Alert>
           )}
 
+          {isFormOpen && (
           <TextField
             label="Embedded map URL"
             value={embedUrl}
@@ -308,7 +333,9 @@ export default function MapManager() {
             helperText="Paste the full embeddable map URL that should appear on the big screen."
             fullWidth
           />
+          )}
 
+          {isFormOpen && (
           <Box>
             <Typography fontWeight={600} sx={{ mb: 1 }}>
               QR code image
@@ -365,7 +392,9 @@ export default function MapManager() {
               </Box>
             )}
           </Box>
+          )}
 
+          {isFormOpen && (
           <Box>
             <Typography fontWeight={600} sx={{ mb: 1.5 }}>
               QR position and size
@@ -437,12 +466,25 @@ export default function MapManager() {
               </Box>
             </Stack>
           </Box>
+          )}
 
-          <Box>
+          {isFormOpen && (
+          <Box sx={{ display: "flex", gap: 1.5 }}>
             <Button variant="contained" onClick={save} disabled={loading}>
               {loading ? "Saving..." : "Save Map Record"}
             </Button>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsFormOpen(false);
+                setSelectedPath([]);
+              }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
           </Box>
+          )}
 
           <Divider />
 
