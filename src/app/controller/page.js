@@ -77,6 +77,9 @@ export default function Controller() {
 
   const isExperienceNode = (node) => Boolean(getCategoryExperienceType(node));
 
+  const getExperienceShellWidth = (experienceType) =>
+    experienceType === "map-embed" ? "min(90vw, 1440px)" : "min(92vw, 1040px)";
+
   const renderExperienceComponent = (experienceType, state, isInteractive = true) => {
     if (isInteractive) {
       if (experienceType === "strategy-forecast") {
@@ -634,7 +637,7 @@ export default function Controller() {
                 <ArrowBackIcon />
               </Button>
             </Box>
-            <Box sx={{ width: "min(92vw, 1040px)", mt: { xs: 2, md: 4 } }}>
+            <Box sx={{ width: getExperienceShellWidth(currentExperience?.type), mt: { xs: 2, md: 4 } }}>
               {renderExperienceComponent(currentExperience?.type, currentExperienceState, true)}
             </Box>
             </>
@@ -781,7 +784,7 @@ export default function Controller() {
 
                   if (activeExperienceForLeaf) {
                     return (
-                      <Box key={currentExperience.type} sx={{ width: "min(92vw, 1040px)" }}>
+                      <Box key={currentExperience.type} sx={{ width: getExperienceShellWidth(currentExperience.type) }}>
                         <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
                           <Button
                             variant="contained"

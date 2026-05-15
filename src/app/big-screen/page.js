@@ -147,6 +147,8 @@ export default function BigScreenPage() {
     return null;
   };
 
+  const isFullStageMapExperience = currentExperience?.type === "map-embed";
+
   return (
     <Box
       sx={{
@@ -312,8 +314,8 @@ export default function BigScreenPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                px: stagePadding,
-                py: "clamp(12px, 1.2vw, 24px)",
+                px: isFullStageMapExperience ? 0 : stagePadding,
+                py: isFullStageMapExperience ? 0 : "clamp(12px, 1.2vw, 24px)",
                 boxSizing: "border-box",
               }}
             >
@@ -321,12 +323,13 @@ export default function BigScreenPage() {
                 sx={{
                   width: "100%",
                   height: "100%",
-                  borderRadius: stageRadius,
+                  borderRadius: isFullStageMapExperience ? 0 : stageRadius,
                   overflow: "hidden",
-                  background:
-                    "linear-gradient(135deg, #07280B 0%, #1C932D 56%, #390042 100%)",
-                  boxShadow: "0 25px 50px rgba(0,0,0,0.26)",
-                  p: "clamp(18px, 1.8vw, 28px)",
+                  background: isFullStageMapExperience
+                    ? "transparent"
+                    : "linear-gradient(135deg, #07280B 0%, #1C932D 56%, #390042 100%)",
+                  boxShadow: isFullStageMapExperience ? "none" : "0 25px 50px rgba(0,0,0,0.26)",
+                  p: isFullStageMapExperience ? 0 : "clamp(18px, 1.8vw, 28px)",
                   boxSizing: "border-box",
                 }}
               >

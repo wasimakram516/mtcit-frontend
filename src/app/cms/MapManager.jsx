@@ -8,7 +8,6 @@ import {
   Divider,
   MenuItem,
   Paper,
-  Slider,
   Stack,
   TextField,
   Typography,
@@ -18,6 +17,7 @@ import {
 import { Delete, Edit } from "@mui/icons-material";
 import { fetchCategories, updateCategoryWithProgress } from "@/services/CategoryService";
 import ConfirmationDialog from "@/app/components/ConfirmationDialog";
+import { normalizeMapEmbedUrl } from "@/utils/mapEmbeds";
 
 function flattenCategories(nodes, parentNames = []) {
   return (nodes || []).flatMap((node) => {
@@ -65,8 +65,6 @@ export default function MapManager() {
   const [qrFile, setQrFile] = useState(null);
   const [qrPreview, setQrPreview] = useState("");
   const [removeQr, setRemoveQr] = useState(false);
-  const [qrPosition, setQrPosition] = useState({ x: 72, y: 74 });
-  const [qrSize, setQrSize] = useState({ width: 16, height: 16 });
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -91,18 +89,10 @@ export default function MapManager() {
 
   const applyCategoryConfig = (category) => {
     const config = category?.metadata?.mapEmbed || {};
-    setEmbedUrl(config.embedUrl || "");
+    setEmbedUrl(normalizeMapEmbedUrl(config.embedUrl || ""));
     setQrPreview(config.qrImageUrl || "");
     setQrFile(null);
     setRemoveQr(false);
-    setQrPosition({
-      x: Number(config.qrPosition?.x ?? 72),
-      y: Number(config.qrPosition?.y ?? 74),
-    });
-    setQrSize({
-      width: Number(config.qrSize?.width ?? 16),
-      height: Number(config.qrSize?.height ?? 16),
-    });
     setIsFormOpen(true);
   };
 
@@ -112,8 +102,6 @@ export default function MapManager() {
     setQrFile(null);
     setQrPreview("");
     setRemoveQr(false);
-    setQrPosition({ x: 72, y: 74 });
-    setQrSize({ width: 16, height: 16 });
     setMessage({ type: "", text: "" });
     setIsFormOpen(true);
   };
@@ -139,8 +127,6 @@ export default function MapManager() {
       setQrFile(null);
       setQrPreview("");
       setRemoveQr(false);
-      setQrPosition({ x: 72, y: 74 });
-      setQrSize({ width: 16, height: 16 });
       setIsFormOpen(false);
     }
   };
@@ -164,8 +150,6 @@ export default function MapManager() {
     setQrFile(null);
     setQrPreview("");
     setRemoveQr(false);
-    setQrPosition({ x: 72, y: 74 });
-    setQrSize({ width: 16, height: 16 });
     setIsFormOpen(false);
   };
 
@@ -184,24 +168,16 @@ export default function MapManager() {
         return;
       }
 
-      const safePosition = {
-        x: Math.max(0, Math.min(100, Number(qrPosition.x) || 0)),
-        y: Math.max(0, Math.min(100, Number(qrPosition.y) || 0)),
-      };
-      const safeSize = {
-        width: Math.max(6, Math.min(40, Number(qrSize.width) || 16)),
-        height: Math.max(6, Math.min(40, Number(qrSize.height) || 16)),
-      };
-
       const formData = new FormData();
+      const normalizedEmbedUrl = normalizeMapEmbedUrl(embedUrl);
       formData.append(
         "metadata",
         JSON.stringify({
           mapEmbed: {
             enabled: true,
-            embedUrl: String(embedUrl).trim(),
-            qrPosition: safePosition,
-            qrSize: safeSize,
+            embedUrl: normalizedEmbedUrl,
+            qrPosition: { x: 72, y: 74 },
+            qrSize: { width: 16, height: 16 },
           },
         })
       );
@@ -298,7 +274,8 @@ export default function MapManager() {
 
           <Typography color="text.secondary">
             Choose the saved category path for this map record, then save its embed URL and QR
-            settings. You can save multiple map records across different subcategories.
+            artwork. The controller will use the map for interaction, and the big screen will use
+            the uploaded QR image as the main output for that selected map.
           </Typography>
 
           <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
@@ -385,7 +362,7 @@ export default function MapManager() {
             label="Embedded map URL"
             value={embedUrl}
             onChange={(event) => setEmbedUrl(event.target.value)}
-            helperText="Paste the full embeddable map URL that should appear on the big screen."
+            helperText="Paste a Google Maps/My Maps URL. We will convert supported share links to an embed URL automatically, but the map must also be shared publicly or with anyone who has the link."
             fullWidth
           />
           )}
@@ -393,14 +370,14 @@ export default function MapManager() {
           {isFormOpen && (
           <Box>
             <Typography fontWeight={600} sx={{ mb: 1 }}>
-              QR code image
+              QR code image / video
             </Typography>
             <Button variant="outlined" component="label">
-              Upload QR Code
+              Upload QR Media
               <input
                 hidden
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   setQrFile(file || null);
@@ -438,88 +415,26 @@ export default function MapManager() {
                 >
                   <Delete fontSize="small" color="error" />
                 </IconButton>
-                <Box
-                  component="img"
-                  src={qrPreview}
-                  alt="QR preview"
-                  sx={{ width: "100%", height: "100%", objectFit: "contain" }}
-                />
+                {/\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(String(qrPreview || "")) ? (
+                  <Box
+                    component="video"
+                    src={qrPreview}
+                    muted
+                    autoPlay
+                    loop
+                    playsInline
+                    sx={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                  />
+                ) : (
+                  <Box
+                    component="img"
+                    src={qrPreview}
+                    alt="QR preview"
+                    sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  />
+                )}
               </Box>
             )}
-          </Box>
-          )}
-
-          {isFormOpen && (
-          <Box>
-            <Typography fontWeight={600} sx={{ mb: 1.5 }}>
-              QR position and size
-            </Typography>
-            <Stack spacing={2.2}>
-              <Box>
-                <Typography variant="body2" sx={{ mb: 0.8 }}>
-                  X position: {Math.round(qrPosition.x)}%
-                </Typography>
-                <Slider
-                  min={0}
-                  max={100}
-                  value={qrPosition.x}
-                  onChange={(_, value) =>
-                    setQrPosition((current) => ({
-                      ...current,
-                      x: Array.isArray(value) ? value[0] : value,
-                    }))
-                  }
-                />
-              </Box>
-              <Box>
-                <Typography variant="body2" sx={{ mb: 0.8 }}>
-                  Y position: {Math.round(qrPosition.y)}%
-                </Typography>
-                <Slider
-                  min={0}
-                  max={100}
-                  value={qrPosition.y}
-                  onChange={(_, value) =>
-                    setQrPosition((current) => ({
-                      ...current,
-                      y: Array.isArray(value) ? value[0] : value,
-                    }))
-                  }
-                />
-              </Box>
-              <Box>
-                <Typography variant="body2" sx={{ mb: 0.8 }}>
-                  Width: {Math.round(qrSize.width)}%
-                </Typography>
-                <Slider
-                  min={6}
-                  max={40}
-                  value={qrSize.width}
-                  onChange={(_, value) =>
-                    setQrSize((current) => ({
-                      ...current,
-                      width: Array.isArray(value) ? value[0] : value,
-                    }))
-                  }
-                />
-              </Box>
-              <Box>
-                <Typography variant="body2" sx={{ mb: 0.8 }}>
-                  Height: {Math.round(qrSize.height)}%
-                </Typography>
-                <Slider
-                  min={6}
-                  max={40}
-                  value={qrSize.height}
-                  onChange={(_, value) =>
-                    setQrSize((current) => ({
-                      ...current,
-                      height: Array.isArray(value) ? value[0] : value,
-                    }))
-                  }
-                />
-              </Box>
-            </Stack>
           </Box>
           )}
 
