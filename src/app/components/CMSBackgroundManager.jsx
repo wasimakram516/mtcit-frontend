@@ -18,6 +18,7 @@ function draftToFormData(draft) {
   const fd = new FormData();
   fd.append("displayTitle", draft.displayTitle || "");
   fd.append("titlePosition", JSON.stringify(draft.titlePosition || { x: 50, y: 50 }));
+  fd.append("titleFontSize", String(draft.titleFontSize ?? 100));
   fd.append("opacity", String(draft.opacity ?? 1));
   fd.append("darkOverlay", String(draft.darkOverlay ?? 0));
   fd.append("lightOverlay", String(draft.lightOverlay ?? 0));

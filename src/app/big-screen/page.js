@@ -26,6 +26,7 @@ export default function BigScreenPage() {
   const router = useRouter();
   const {
     currentMedia,
+    activeBackgrounds,
     currentExperience,
     currentExperienceState,
     currentLanguage,
@@ -77,7 +78,9 @@ export default function BigScreenPage() {
     return "";
   };
 
-  const backgroundSlides = currentMedia?.layers || [];
+  const dedicatedBackgroundSlides = currentMedia?.layers || [];
+  const hasDedicatedBackgrounds = dedicatedBackgroundSlides.some((slide) => slide?.isActive !== false);
+  const stageBackgroundSlides = hasDedicatedBackgrounds ? dedicatedBackgroundSlides : activeBackgrounds;
 
   const stageAspectRatio = "7 / 3";
   const stageWidth = "min(98vw, calc(92vh * 7 / 3))";
@@ -176,7 +179,7 @@ export default function BigScreenPage() {
         }}
       >
         {/* Global Custom Background Fallback / Carbon Mode — bottom of stage stack */}
-        {(carbonActive || !currentMedia || backgroundSlides.length === 0) && (
+        {(carbonActive || stageBackgroundSlides.length === 0) && (
           <Box
             sx={{
               position: "absolute",
@@ -189,7 +192,7 @@ export default function BigScreenPage() {
         )}
 
         {/* Media-Specific Background Layers — above fallback, below foreground */}
-        {!carbonActive && currentMedia && backgroundSlides.length > 0 && (
+        {!carbonActive && stageBackgroundSlides.length > 0 && (
           <Box
             sx={{
               position: "absolute",
@@ -197,7 +200,7 @@ export default function BigScreenPage() {
               zIndex: zStageMediaBgLayers,
             }}
           >
-            <BackgroundSlideshow slides={backgroundSlides} language={currentLanguage} />
+            <BackgroundSlideshow slides={stageBackgroundSlides} language={currentLanguage} />
           </Box>
         )}
         
@@ -301,6 +304,22 @@ export default function BigScreenPage() {
             justifyContent: "center",
           }}
         >
+          {currentExperience && (
+            <Box
+              sx={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                px: stagePadding,
+                py: "clamp(12px, 1.2vw, 24px)",
+                boxSizing: "border-box",
+              }}
+            >
+              {renderExperience()}
+            </Box>
+          )}
 
 
           {/* 70% centered media content layers container (above background, below pinpoint) */}

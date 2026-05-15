@@ -34,6 +34,7 @@ function normalizeDisplayMediaPayload(raw) {
 
 export default function useWebSocketBigScreen() {
   const [allMedia, setAllMedia] = useState([]);
+  const [activeBackgrounds, setActiveBackgrounds] = useState([]);
   const [currentMedia, setCurrentMedia] = useState(null);
   const [currentExperience, setCurrentExperience] = useState(null);
   const [currentExperienceState, setCurrentExperienceState] = useState(null);
@@ -62,6 +63,11 @@ export default function useWebSocketBigScreen() {
     socketInstance.on("mediaUpdate", (mediaList) => {
       console.log("All media loaded", mediaList);
       setAllMedia(mediaList);
+    });
+
+    socketInstance.on("backgroundUpdate", (backgrounds) => {
+      console.log("Active backgrounds loaded", backgrounds);
+      setActiveBackgrounds(Array.isArray(backgrounds) ? backgrounds : []);
     });
 
     socketInstance.on("categorySelected", () => {
@@ -120,6 +126,7 @@ export default function useWebSocketBigScreen() {
 
   return {
     currentMedia,
+    activeBackgrounds,
     currentExperience,
     currentExperienceState,
     isLoading,

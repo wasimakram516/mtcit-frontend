@@ -13,9 +13,11 @@ import {
   TextField,
   Typography,
   IconButton,
+  Tooltip,
 } from "@mui/material";
-import { Delete } from "@mui/icons-material";
+import { Delete, Edit } from "@mui/icons-material";
 import { fetchCategories, updateCategoryWithProgress } from "@/services/CategoryService";
+import ConfirmationDialog from "@/app/components/ConfirmationDialog";
 
 function flattenCategories(nodes, parentNames = []) {
   return (nodes || []).flatMap((node) => {
@@ -69,6 +71,8 @@ export default function MapManager() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const categories = useMemo(() => flattenCategories(tree), [tree]);
   const configuredMapCategories = useMemo(
@@ -154,6 +158,17 @@ export default function MapManager() {
     setRemoveQr(true);
   };
 
+  const clearFormState = () => {
+    setSelectedPath([]);
+    setEmbedUrl("");
+    setQrFile(null);
+    setQrPreview("");
+    setRemoveQr(false);
+    setQrPosition({ x: 72, y: 74 });
+    setQrSize({ width: 16, height: 16 });
+    setIsFormOpen(false);
+  };
+
   const save = async () => {
     setLoading(true);
     setUploadProgress(0);
@@ -206,14 +221,7 @@ export default function MapManager() {
 
       await load();
       setMessage({ type: "success", text: "Map record saved." });
-      setSelectedPath([]);
-      setEmbedUrl("");
-      setQrFile(null);
-      setQrPreview("");
-      setRemoveQr(false);
-      setQrPosition({ x: 72, y: 74 });
-      setQrSize({ width: 16, height: 16 });
-      setIsFormOpen(false);
+      clearFormState();
     } catch (error) {
       console.error(error);
       setMessage({ type: "error", text: "Failed to save map configuration." });
@@ -221,6 +229,53 @@ export default function MapManager() {
       setLoading(false);
       setTimeout(() => setUploadProgress(0), 300);
     }
+  };
+
+  const deleteRecord = async (category) => {
+    if (!category?._id) return;
+
+    setLoading(true);
+    setUploadProgress(0);
+    setMessage({ type: "", text: "" });
+
+    try {
+      const formData = new FormData();
+      formData.append(
+        "metadata",
+        JSON.stringify({
+          mapEmbed: {
+            enabled: false,
+            embedUrl: "",
+            qrPosition: { x: 72, y: 74 },
+            qrSize: { width: 16, height: 16 },
+            qrImageUrl: "",
+          },
+        })
+      );
+      formData.append("removeMapQr", "true");
+
+      await updateCategoryWithProgress(category._id, formData, (event) => {
+        if (!event.total) return;
+        setUploadProgress(Math.round((event.loaded * 100) / event.total));
+      });
+
+      await load();
+      if (selectedCategoryId && String(selectedCategoryId) === String(category._id)) {
+        clearFormState();
+      }
+      setMessage({ type: "success", text: "Map record deleted." });
+    } catch (error) {
+      console.error(error);
+      setMessage({ type: "error", text: "Failed to delete map record." });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setUploadProgress(0), 300);
+    }
+  };
+
+  const requestDeleteRecord = (category) => {
+    setDeleteTarget(category);
+    setConfirmDeleteOpen(true);
   };
 
   return (
@@ -527,15 +582,35 @@ export default function MapManager() {
                         {category.metadata?.mapEmbed?.embedUrl}
                       </Typography>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        setSelectedPath(category.categoryPath);
-                        applyCategoryConfig(category);
-                      }}
-                    >
-                      Edit
-                    </Button>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Tooltip title="Edit map record">
+                        <span>
+                          <IconButton
+                            onClick={() => {
+                              setSelectedPath(category.categoryPath);
+                              applyCategoryConfig(category);
+                            }}
+                            color="primary"
+                            size="small"
+                            disabled={loading}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Delete map record">
+                        <span>
+                          <IconButton
+                            onClick={() => requestDeleteRecord(category)}
+                            color="error"
+                            size="small"
+                            disabled={loading}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
                   </Box>
                 ))}
               </Stack>
@@ -543,6 +618,29 @@ export default function MapManager() {
           </Box>
         </Stack>
       </Paper>
+      <ConfirmationDialog
+        open={confirmDeleteOpen}
+        onClose={() => {
+          setConfirmDeleteOpen(false);
+          setDeleteTarget(null);
+        }}
+        onConfirm={() => {
+          const target = deleteTarget;
+          setConfirmDeleteOpen(false);
+          setDeleteTarget(null);
+          if (target) {
+            deleteRecord(target);
+          }
+        }}
+        title="Delete Map Record"
+        message={
+          deleteTarget
+            ? `Are you sure you want to delete the map record for ${deleteTarget.label}?`
+            : "Are you sure you want to delete this map record?"
+        }
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+      />
     </Box>
   );
 }
