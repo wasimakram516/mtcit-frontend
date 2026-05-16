@@ -35,6 +35,14 @@ export default function Controller() {
   const [selectedLeafId, setSelectedLeafId] = useState(null);
   const [selectedMediaSlug, setSelectedMediaSlug] = useState(null);
   const [mediaForLeaf, setMediaForLeaf] = useState(null);
+  const [pendingNodeId, setPendingNodeId] = useState(null);
+  const [pendingSlug, setPendingSlug] = useState(null);
+  const [pendingRect, setPendingRect] = useState(null);
+
+  const capturePendingRect = (e) => {
+    const el = e?.currentTarget || e?.target;
+    if (el) setPendingRect(el.getBoundingClientRect());
+  };
 
   const isArabic = language === "ar";
 
@@ -86,6 +94,9 @@ export default function Controller() {
     setSelectedLeafId(null);
     setSelectedMediaSlug(null);
     setMediaForLeaf(null);
+    setPendingNodeId(null);
+    setPendingSlug(null);
+    setPendingRect(null);
     sendCategorySelection("", "", languageRef.current);
   }, [sendCategorySelection]);
 
@@ -344,8 +355,33 @@ export default function Controller() {
     sendLanguageChange(language);
   }, [language, sendLanguageChange]);
 
-  const pageEase = [0.4, 0, 0.2, 1];
-  const pageTransition = { duration: 0.18, ease: pageEase };
+  const isAnyPending = Boolean(pendingNodeId || pendingSlug);
+
+  // Clear pending once big screen responds with real content
+  const prevPendingRef = useRef(false);
+  useEffect(() => {
+    if (!prevPendingRef.current) return;
+    // Only clear on real content — not on empty leafMedia (experience nodes send items:[])
+    const hasRealContent = currentExperience || displayMedia || (leafMedia && leafMedia.items?.length > 0);
+    if (!hasRealContent) return;
+    setPendingNodeId(null);
+    setPendingSlug(null);
+    setPendingRect(null);
+  }, [currentExperience, leafMedia, displayMedia]);
+
+  useEffect(() => {
+    prevPendingRef.current = isAnyPending;
+  });
+
+  // Safety timeout — clear after 5s no matter what (no media / no config on node)
+  useEffect(() => {
+    if (!isAnyPending) return;
+    const t = setTimeout(() => { setPendingNodeId(null); setPendingSlug(null); setPendingRect(null); }, 5000);
+    return () => clearTimeout(t);
+  }, [isAnyPending]);
+
+  const pageEase = [0.32, 0, 0.18, 1];
+  const pageTransition = { duration: 0.35, ease: pageEase };
 
   /** Default = transparent (page bg shows through); active = original green gradient. */
   const bubbleActiveBackground =
@@ -361,7 +397,7 @@ export default function Controller() {
   const bubbleActiveShadow =
     "0 0 0 1px rgba(248, 252, 246, 0.22), 0 0 28px rgba(28, 147, 45, 0.55)";
 
-  const getBubbleSx = (isActive, overrides = {}) => ({
+  const getBubbleSx = (isActive, overrides = {}) => ({ position: "relative",
     width: "clamp(9rem, 40vw, 14rem)",
     height: "clamp(9rem, 40vw, 14rem)",
     borderRadius: "1.5rem",
@@ -412,7 +448,7 @@ export default function Controller() {
 
       if (isExperienceNode(node)) {
         setSelectedPath(path);
-        setSelectedLeafId(nodeId);
+        setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
         setSelected({ category: node.name?.en || "", subcategory: "" });
         sendCategorySelection(null, null, language, path);
         setOpenCategoryNode(node.children && node.children.length ? nodeId : null);
@@ -423,10 +459,11 @@ export default function Controller() {
         setOpenCategoryNode(nodeId);
         setSelectedPath([]);
         setSelectedLeafId(null);
+        setPendingNodeId(null); setPendingSlug(null); setPendingRect(null);
         setSelectedMediaSlug(null);
       } else {
         setSelectedPath(path);
-        setSelectedLeafId(nodeId);
+        setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
         setSelected({ category: node.name?.en || "", subcategory: "" });
         sendCategorySelection(null, null, language, path);
         setOpenCategoryNode(null);
@@ -465,7 +502,7 @@ export default function Controller() {
 
       if (isExperienceNode(node)) {
         setSelectedPath(path);
-        setSelectedLeafId(nodeId);
+        setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
         setSelected({ category: node?.name?.en || category, subcategory: "" });
         sendCategorySelection(null, null, language, path);
         return;
@@ -474,11 +511,12 @@ export default function Controller() {
       if (node.children && node.children.length) {
         setOpenCategoryNode(nodeId);
         setSelectedLeafId(null);
+        setPendingNodeId(null); setPendingSlug(null); setPendingRect(null);
         return;
       }
 
       setSelectedPath(path);
-      setSelectedLeafId(nodeId);
+      setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
       setSelected({ category: node?.name?.en || category, subcategory: "" });
       sendCategorySelection(null, null, language, path);
       return;
@@ -650,9 +688,9 @@ export default function Controller() {
       {!openCategoryNode ? (
         <motion.div
           key="root-nodes"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
           transition={pageTransition}
         >
         <Box sx={{ 
@@ -686,7 +724,7 @@ export default function Controller() {
           )}
           {rootExperienceActive ? (
             <>
-            <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: pageEase }} style={{ position: "fixed", top: "clamp(4rem, 7rem, 7rem)", left: "clamp(1rem, 3rem, 3rem)", zIndex: 70 }}>
               <Button
                 variant="contained"
                 onClick={resetToRoot}
@@ -702,14 +740,20 @@ export default function Controller() {
               >
                 <ArrowBackIcon />
               </Button>
-            </Box>
-            <Box sx={{ width: getExperienceShellWidth(currentExperience?.type), mt: { xs: 2, md: 4 } }}>
+            </motion.div>
+            <motion.div
+              key={currentExperience?.type}
+              initial={{ opacity: 0, y: 32, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.4, ease: pageEase }}
+              style={{ width: getExperienceShellWidth(currentExperience?.type), marginTop: "1rem" }}
+            >
               {renderExperienceComponent(currentExperience?.type, currentExperienceState, true)}
-            </Box>
+            </motion.div>
             </>
           ) : (
             <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: { xs: "1.5rem", md: "4rem" } }}>
-          {displayCategories.map((cat) => {
+          {displayCategories.map((cat, catIndex) => {
             const category = cat.label;
             const subcategories = (cat.children || []).map((child) => child.label);
             const isActiveMain = selected.category === category && !selected.subcategory;
@@ -717,14 +761,17 @@ export default function Controller() {
             return (
               <motion.div
                 key={category}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-                animate={
-                  isActiveMain
-                    ? { scale: 1.08, y: -2, rotate: 0 }
-                    : { scale: 1, y: 0, rotate: 0 }
-                }
-                transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                initial={{ opacity: 0, scale: 0.82, y: 20 }}
+                animate={isActiveMain
+                  ? { opacity: 1, scale: 1.08, y: -2 }
+                  : { opacity: 1, scale: 1, y: 0 }}
+                whileHover={{ scale: isActiveMain ? 1.08 : 1.06 }}
+                whileTap={{ scale: 0.93 }}
+                transition={{
+                  opacity: { duration: 0.3, delay: catIndex * 0.06 },
+                  scale: { type: "spring", stiffness: 280, damping: 22 },
+                  y: { duration: 0.3, delay: catIndex * 0.06, ease: pageEase },
+                }}
                 style={{
                   width: "clamp(9rem, 40vw, 14rem)",
                   height: "clamp(9rem, 40vw, 14rem)",
@@ -733,9 +780,9 @@ export default function Controller() {
                   position: "relative",
                   zIndex: 3,
                 }}
-                onClick={() => handleCategoryClick(category, subcategories, cat.id)}
+                onClick={(e) => { capturePendingRect(e); handleCategoryClick(category, subcategories, cat.id); }}
               >
-                <Box sx={getBubbleSx(isActiveMain, { width: "100%", height: "100%" })}>
+                <Box sx={getBubbleSx(isActiveMain, { width: "100%", height: "100%", position: "relative" })}>
                     {isActiveMain && (
                       <Box
                         sx={{
@@ -803,9 +850,9 @@ export default function Controller() {
           return (
             <motion.div
               key={`child-nodes-${openCategoryNode}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
               transition={pageTransition}
             >
             <Box
@@ -825,13 +872,14 @@ export default function Controller() {
                 currentExperience?.type &&
                 String(currentExperience.categoryId) === String(selectedLeafId)
               ) && (
-              <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: pageEase }} style={{ position: "fixed", top: "clamp(4rem, 7rem, 7rem)", left: "clamp(1rem, 3rem, 3rem)", zIndex: 70 }}>
                 <Button
                   variant="contained"
                   onClick={() => {
                     setSelectedLeafId(null);
                     setSelectedPath([]);
                     setSelectedMediaSlug(null);
+                    setPendingNodeId(null); setPendingSlug(null); setPendingRect(null);
                     sendCategorySelection("", "", language);
                     if (parentNode) {
                       setOpenCategoryNode(parentNode._id);
@@ -851,7 +899,7 @@ export default function Controller() {
                 >
                   <ArrowBackIcon />
                 </Button>
-              </Box>
+              </motion.div>
               )}
 
               {!(
@@ -901,8 +949,8 @@ export default function Controller() {
 
                   if (activeExperienceForLeaf) {
                     return (
-                      <Box key={currentExperience.type} sx={{ width: getExperienceShellWidth(currentExperience.type) }}>
-                        <Box sx={{ position: "fixed", top: { xs: "5rem", md: "7rem" }, left: { xs: "1rem", md: "3rem" }, zIndex: 70 }}>
+                      <motion.div key={currentExperience.type} initial={{ opacity: 0, y: 32, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.4, ease: pageEase }} style={{ width: getExperienceShellWidth(currentExperience.type) }}>
+                        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: pageEase }} style={{ position: "fixed", top: "clamp(4rem, 7rem, 7rem)", left: "clamp(1rem, 3rem, 3rem)", zIndex: 70 }}>
                           <Button
                             variant="contained"
                             onClick={() => {
@@ -924,9 +972,9 @@ export default function Controller() {
                           >
                             <ArrowBackIcon />
                           </Button>
-                        </Box>
+                        </motion.div>
                         {renderExperienceComponent(currentExperience.type, currentExperienceState, true)}
-                      </Box>
+                      </motion.div>
                     );
                   }
 
@@ -968,8 +1016,10 @@ export default function Controller() {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            capturePendingRect(e);
                             sendSelectMedia(row.slug, language);
                             setSelectedMediaSlug(row.slug);
+                            setPendingSlug(row.slug);
                           }}
                         >
                           <Box
@@ -1035,10 +1085,20 @@ export default function Controller() {
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (hasChildren) {
+                        capturePendingRect(event);
+                        const childNode = findNodeById(categoryTree, child._id || child.id);
+                        // Experience nodes always trigger selection, even if they have children
+                        if (isExperienceNode(childNode)) {
+                          handleSubBubbleClick(
+                            node.name?.en || "",
+                            child.name?.en || child.label,
+                            child._id || child.id
+                          );
+                        } else if (hasChildren) {
                           setOpenCategoryNode(child._id);
                           setSelectedLeafId(null);
                           setSelectedMediaSlug(null);
+                          setPendingNodeId(null); setPendingSlug(null); setPendingRect(null);
                         } else {
                           handleSubBubbleClick(
                             node.name?.en || "",
@@ -1105,7 +1165,51 @@ export default function Controller() {
       )}
       </AnimatePresence>
 
-       {/* Removed Carbon Footprint Bubble */}
+      {/* Pending ring — fixed, centered on the exact button that was tapped */}
+      <AnimatePresence>
+      {isAnyPending && pendingRect && (() => {
+        const cx = pendingRect.left + pendingRect.width / 2;
+        const cy = pendingRect.top + pendingRect.height / 2;
+        const r = Math.max(pendingRect.width, pendingRect.height);
+        return (
+          <motion.div key="pending-overlay" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }} transition={{ duration: 0.3 }}
+            style={{ position: "fixed", zIndex: 200, pointerEvents: "none", top: cy, left: cx, transform: "translate(-50%, -50%)" }}>
+            {/* Outer ring */}
+            <Box sx={{
+              position: "absolute",
+              width: r + 32, height: r + 32,
+              top: -(r + 32) / 2, left: -(r + 32) / 2,
+              borderRadius: "2rem",
+              border: "3px solid rgba(255,255,255,0.1)",
+              borderTopColor: "rgba(248,252,246,0.95)",
+              borderRightColor: "rgba(67,180,85,0.8)",
+              animation: "gRingOut 1s linear infinite",
+              "@keyframes gRingOut": { to: { transform: "rotate(360deg)" } },
+            }} />
+            {/* Inner dashed ring */}
+            <Box sx={{
+              position: "absolute",
+              width: r + 56, height: r + 56,
+              top: -(r + 56) / 2, left: -(r + 56) / 2,
+              borderRadius: "2.4rem",
+              border: "2px dashed rgba(57,0,66,0.65)",
+              animation: "gRingIn 1.65s linear infinite",
+              "@keyframes gRingIn": { to: { transform: "rotate(-360deg)" } },
+            }} />
+            {/* Glow */}
+            <Box sx={{
+              position: "absolute",
+              width: r + 16, height: r + 16,
+              top: -(r + 16) / 2, left: -(r + 16) / 2,
+              borderRadius: "1.8rem",
+              background: "radial-gradient(circle, rgba(28,147,45,0.2) 0%, transparent 70%)",
+              animation: "gGlow 1.8s ease-in-out infinite",
+              "@keyframes gGlow": { "0%,100%": { opacity: 0.6 }, "50%": { opacity: 1 } },
+            }} />
+          </motion.div>
+        );
+      })()}
+      </AnimatePresence>
     </Box>
   );
 }
