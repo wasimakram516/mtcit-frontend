@@ -76,13 +76,12 @@ const copy = {
 // viewBox 0 0 52 22: w=52, h=22 (h≈w*0.42=21.84)
 // Exhaust at (46.8, 13.6) in viewBox "0 0 52 22"
 const SMOKE_PARTICLES = [
-  { delay: "0s",    dur: "1.4s", r: 4,   tx: "0;2;-4;-10",  ty: "0;-8;-18;-28"  },
-  { delay: "0.2s",  dur: "1.6s", r: 5,   tx: "0;-3;-8;-14", ty: "0;-9;-20;-30"  },
-  { delay: "0.4s",  dur: "1.3s", r: 3.5, tx: "0;3;-2;-9",   ty: "0;-7;-16;-26"  },
-  { delay: "0.65s", dur: "1.7s", r: 6,   tx: "0;-4;-10;-16",ty: "0;-10;-22;-32" },
-  { delay: "0.9s",  dur: "1.5s", r: 4.5, tx: "0;2;-5;-12",  ty: "0;-8;-19;-29"  },
-  { delay: "1.1s",  dur: "1.4s", r: 3.8, tx: "0;-2;-7;-13", ty: "0;-8;-17;-27"  },
-  { delay: "1.35s", dur: "1.8s", r: 5.5, tx: "0;3;-3;-11",  ty: "0;-11;-23;-34" },
+  { delay: "0s",    dur: "1.5s", r: 3,   tx: "0;2;-3;-8",   ty: "0;-6;-14;-20"  },
+  { delay: "0.25s", dur: "1.7s", r: 3.5, tx: "0;-2;-5;-10", ty: "0;-7;-15;-22"  },
+  { delay: "0.5s",  dur: "1.4s", r: 2.5, tx: "0;2;-2;-7",   ty: "0;-5;-12;-18"  },
+  { delay: "0.8s",  dur: "1.8s", r: 4,   tx: "0;-2;-6;-11", ty: "0;-7;-16;-23"  },
+  { delay: "1.05s", dur: "1.5s", r: 3.2, tx: "0;1.5;-3;-8", ty: "0;-6;-13;-20"  },
+  { delay: "1.3s",  dur: "1.6s", r: 2.8, tx: "0;-1.5;-5;-9",ty: "0;-6;-14;-21"  },
 ];
 
 function SmokeParticle({ delay, dur, r, tx, ty }) {
@@ -103,8 +102,8 @@ function SmokeParticle({ delay, dur, r, tx, ty }) {
         calcMode="spline"
         keySplines="0.25 0.1 0.25 1;0.25 0.1 0.25 1;0.25 0.1 0.25 1"
       />
-      <animate attributeName="r"       values={`${r};${r * 2.2};${r * 4};${r * 5.5}`}           keyTimes="0;0.18;0.55;1" dur={dur} begin={delay} repeatCount="indefinite" />
-      <animate attributeName="opacity" values="0;0.9;0.7;0"                                       keyTimes="0;0.08;0.4;1"  dur={dur} begin={delay} repeatCount="indefinite" />
+      <animate attributeName="r"       values={`${r};${r * 2.2};${r * 3.8};${r * 5}`}            keyTimes="0;0.18;0.55;1" dur={dur} begin={delay} repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0;0.72;0.5;0"                                      keyTimes="0;0.1;0.42;1"  dur={dur} begin={delay} repeatCount="indefinite" />
       <animate attributeName="fill"    values="rgb(60,60,60);rgb(100,100,100);rgb(190,190,190)"   keyTimes="0;0.25;1"      dur={dur} begin={delay} repeatCount="indefinite" />
     </circle>
   );
@@ -124,10 +123,10 @@ function GasCarSVG({ s = 1 }) {
       <polygon points="7.28,4.84 11.44,0 41.6,0 45.24,4.84" fill="#96281B" />
       {/* Window */}
       <rect x="11.96" y="0.66" width="28.08" height="3.96" rx="2" fill="rgba(140,190,220,0.45)" />
-      {/* Headlight – left = front */}
-      <rect x="3.64" y="6.16" width="4.16" height="3.08" rx="1" fill="rgba(200,150,50,0.75)" />
-      {/* Tail light – right = rear */}
-      <rect x="43.68" y="6.6" width="4.68" height="3.96" rx="2" fill="rgba(255,50,30,0.9)" />
+      {/* Tail light – left = rear */}
+      <rect x="3.64" y="6.16" width="4.16" height="3.08" rx="1" fill="rgba(255,50,30,0.9)" />
+      {/* Headlight – right = front */}
+      <rect x="43.68" y="6.6" width="4.68" height="3.96" rx="2" fill="rgba(200,150,50,0.75)" />
       {/* Ground shadow */}
       <rect x="2.6" y="16.28" width="46.8" height="2.2" fill="rgba(80,55,25,0.3)" />
       {/* Rear wheel */}
@@ -167,10 +166,10 @@ function CybertruckSVG({ s = 1 }) {
       <polygon points="26.68,1.1 35.38,1.1 41.76,5.94 26.68,5.94" fill="rgba(180,220,240,0.55)" />
       {/* Window divider */}
       <line x1="26.1" y1="1.1" x2="26.1" y2="5.94" stroke="rgba(150,165,175,0.4)" strokeWidth="0.8" />
-      {/* Headlight – left = front */}
-      <rect x="0.58" y="7.04" width="8.12" height="2.2" rx="1" fill="rgba(210,230,255,0.7)" />
-      {/* Tail light – right = rear */}
-      <rect x="49.88" y="7.04" width="6.96" height="2.2" rx="1" fill="rgba(255,70,70,0.9)" />
+      {/* Tail light – left = rear */}
+      <rect x="0.58" y="7.04" width="8.12" height="2.2" rx="1" fill="rgba(255,70,70,0.9)" />
+      {/* Headlight – right = front */}
+      <rect x="49.88" y="7.04" width="6.96" height="2.2" rx="1" fill="rgba(210,230,255,0.7)" />
       {/* Ground shadow */}
       <rect x="2.32" y="16.72" width="53.36" height="2.2" fill="rgba(100,110,120,0.22)" />
       {/* Left wheel */}

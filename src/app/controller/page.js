@@ -23,6 +23,8 @@ export default function Controller() {
     currentExperienceState,
     sendExperienceState,
     sendSelectMedia,
+    bigScreenReady,
+    setBigScreenReady,
   } = useWebSocketController();
   const { language } = useLanguage();
   const languageRef = useRef(language);
@@ -357,21 +359,14 @@ export default function Controller() {
 
   const isAnyPending = Boolean(pendingNodeId || pendingSlug);
 
-  // Clear pending once big screen responds with real content
-  const prevPendingRef = useRef(false);
+  // Clear pending ring only when big screen confirms media has fully loaded
   useEffect(() => {
-    if (!prevPendingRef.current) return;
-    // Only clear on real content — not on empty leafMedia (experience nodes send items:[])
-    const hasRealContent = currentExperience || displayMedia || (leafMedia && leafMedia.items?.length > 0);
-    if (!hasRealContent) return;
+    if (!bigScreenReady) return;
     setPendingNodeId(null);
     setPendingSlug(null);
     setPendingRect(null);
-  }, [currentExperience, leafMedia, displayMedia]);
-
-  useEffect(() => {
-    prevPendingRef.current = isAnyPending;
-  });
+    setBigScreenReady(false); // reset for next selection
+  }, [bigScreenReady, setBigScreenReady]);
 
   // Safety timeout — clear after 5s no matter what (no media / no config on node)
   useEffect(() => {

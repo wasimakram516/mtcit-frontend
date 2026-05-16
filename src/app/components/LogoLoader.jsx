@@ -45,16 +45,13 @@ export default function LogoLoader({ visible = false, language = "en" }) {
             padding: "24px",
           }}
         >
-          {/* Backdrop */}
+          {/* Glassmorphic backdrop */}
           <div style={{
             position: "absolute",
             inset: 0,
-            background: `
-              radial-gradient(circle at 15% 20%, rgba(28,147,45,0.18) 0, transparent 44%),
-              radial-gradient(circle at 85% 16%, rgba(57,0,66,0.14) 0, transparent 42%),
-              linear-gradient(135deg, rgba(7,40,11,0.85) 0%, rgba(28,147,45,0.80) 52%, rgba(57,0,66,0.85) 100%)
-            `,
-            backdropFilter: "blur(14px)",
+            background: "rgba(8, 16, 12, 0.55)",
+            backdropFilter: "blur(28px) saturate(180%)",
+            WebkitBackdropFilter: "blur(28px) saturate(180%)",
           }} />
 
           {/* Panel */}

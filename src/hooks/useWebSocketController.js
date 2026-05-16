@@ -10,6 +10,7 @@ export default function useWebSocketController() {
   const [connected, setConnected] = useState(false);
   const [displayMedia, setDisplayMedia] = useState(null);
   const [leafMedia, setLeafMedia] = useState(null);
+  const [bigScreenReady, setBigScreenReady] = useState(false);
   const [currentExperience, setCurrentExperience] = useState(null);
   const [currentExperienceState, setCurrentExperienceState] = useState(null);
 
@@ -68,6 +69,11 @@ export default function useWebSocketController() {
     socketInstance.on("displayMedia", (media) => {
       console.log("🎬 Received display media for selected leaf", media);
       setDisplayMedia(media);
+    });
+
+    // Big screen signals media has finished downloading — controller can clear ring now
+    socketInstance.on("bigScreenReady", () => {
+      setBigScreenReady(true);
     });
 
     // Listen for category reorder event from CMS to refresh tree
@@ -132,6 +138,8 @@ export default function useWebSocketController() {
     categoryOptions,
     categoryTree,
     displayMedia,
+    bigScreenReady,
+    setBigScreenReady,
     leafMedia,
     currentExperience,
     currentExperienceState,

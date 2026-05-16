@@ -1,7 +1,26 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { getWebSocketHost } from "@/utils/runtimeConfig";
+
+// Extract the first visible media URL from a display media object for preloading
+function getFirstMediaUrl(media) {
+  // Check dedicated background layers first
+  const layers = media?.layers || [];
+  for (const layer of layers) {
+    if (layer.isActive === false) continue;
+    const url = layer.fileEn?.url || layer.fileAr?.url;
+    if (url) return url;
+  }
+  // Then foreground media layers
+  const mlayers = media?.mediaLayers || [];
+  for (const layer of mlayers) {
+    if (layer.isActive === false) continue;
+    const url = layer.fileEn?.url || layer.fileAr?.url;
+    if (url) return url;
+  }
+  return null;
+}
 
 function normalizeDisplayMediaPayload(raw) {
   if (raw == null || typeof raw !== "object") return raw;
@@ -41,6 +60,7 @@ export default function useWebSocketBigScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const loadingStartRef = useRef(0);
+  const socketRef = useRef(null);
   const [carbonActive, setCarbonActive] = useState(false);
   const [carbonLevel, setCarbonLevel] = useState(50);
   const [categoryTree, setCategoryTree] = useState(null);
@@ -54,6 +74,7 @@ export default function useWebSocketBigScreen() {
     }
 
     const socketInstance = io(WS_HOST, { transports: ["websocket"] });
+    socketRef.current = socketInstance;
 
     socketInstance.on("connect", () => {
       console.log("Connected to WebSocket Server (Big Screen)", socketInstance.id);
@@ -84,18 +105,42 @@ export default function useWebSocketBigScreen() {
       const next = mediaData == null ? null : normalizeDisplayMediaPayload(mediaData);
       setCurrentMedia(next);
       if (next) setCurrentExperience(null);
-      // Ignore null clears that arrive immediately after categorySelected (they just clear old content)
+
       const elapsed = Date.now() - loadingStartRef.current;
-      if (next !== null || elapsed > 800) setIsLoading(false);
+      // Ignore immediate null clears sent right after categorySelected
+      if (!next && elapsed <= 800) return;
+      if (!next) { setIsLoading(false); return; }
+
+      // Extract first media URL to preload before revealing
+      const firstUrl = getFirstMediaUrl(next);
+      if (!firstUrl) { setIsLoading(false); return; }
+
+      const reveal = () => { setIsLoading(false); socketInstance.emit("bigScreenReady"); };
+      const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(firstUrl);
+      if (isVideo) {
+        setTimeout(reveal, 800);
+      } else {
+        const img = new window.Image();
+        const timeout = setTimeout(reveal, 6000);
+        img.onload = img.onerror = () => { clearTimeout(timeout); reveal(); };
+        img.src = firstUrl;
+        if (img.complete) { clearTimeout(timeout); reveal(); }
+      }
     });
 
     socketInstance.on("displayExperience", (payload) => {
       console.log("Display experience received:", payload);
       setCurrentExperience(payload || null);
       if (payload) setCurrentMedia(null);
-      // Same guard — ignore the immediate null clear
+
       const elapsed = Date.now() - loadingStartRef.current;
-      if (payload !== null || elapsed > 800) setIsLoading(false);
+      if (!payload && elapsed <= 800) return;
+      // Experiences (SF, EV, Map) render instantly — clear loading after short render buffer
+      if (payload) {
+        setTimeout(() => { setIsLoading(false); socketInstance.emit("bigScreenReady"); }, 400);
+      } else {
+        setIsLoading(false);
+      }
     });
 
     socketInstance.on("experienceStateChanged", (payload) => {
@@ -123,8 +168,13 @@ export default function useWebSocketBigScreen() {
       console.log("WebSocket disconnected");
     });
 
-    return () => socketInstance.disconnect();
+    return () => { socketInstance.disconnect(); socketRef.current = null; };
   }, [WS_HOST]);
+
+  // Called when media actually finishes loading on big screen — tells controller to clear ring
+  const notifyMediaReady = useCallback(() => {
+    socketRef.current?.emit("bigScreenReady");
+  }, []);
 
   return {
     currentMedia,
@@ -132,6 +182,7 @@ export default function useWebSocketBigScreen() {
     currentExperience,
     currentExperienceState,
     isLoading,
+    notifyMediaReady,
     currentLanguage,
     allMedia,
     carbonActive,
