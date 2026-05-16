@@ -68,7 +68,7 @@ export default function Home() {
           gutterBottom
           dir={language === "ar" ? "rtl" : "ltr"}
           sx={{
-            fontFamily: language === "ar" ? '"SF Mada", "Mada", sans-serif' : '"Aloevera", Georgia, serif',
+            fontFamily: '"Tajawal", sans-serif',
             textShadow: "0 10px 30px rgba(7, 40, 11, 0.35)",
           }}
         >

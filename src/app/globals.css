@@ -1,9 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Mada:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap");
 
 :root {
-  --font-english: "Aloevera", Georgia, "Times New Roman", serif;
-  --font-arabic: "SF Mada", "Mada", Tahoma, sans-serif;
-  --font-primary: var(--font-english);
+  --font-primary: "Tajawal", sans-serif;
   --color-deep-green: #07280b;
   --color-green: #1c932d;
   --color-neon-plum: #390042;
@@ -26,16 +24,6 @@ body {
   user-select: none;
   background: var(--color-surface);
   color: var(--color-deep-green);
-}
-
-html[lang="ar"],
-body[data-language="ar"] {
-  --font-primary: var(--font-arabic);
-}
-
-html[lang="en"],
-body[data-language="en"] {
-  --font-primary: var(--font-english);
 }
 
 body *,

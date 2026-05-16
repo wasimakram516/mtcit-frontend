@@ -32,7 +32,7 @@ const theme = createTheme({
     divider: "rgba(7, 40, 11, 0.14)",
   },
   typography: {
-    fontFamily: '"Aloevera", "Georgia", "Times New Roman", serif',
+    fontFamily: '"Tajawal", sans-serif',
     h1: {
       fontSize: "2.5rem",
       fontWeight: 700,

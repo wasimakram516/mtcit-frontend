@@ -42,8 +42,6 @@ export default function Controller() {
     return isArabic ? node.name?.ar || node.name?.en || node._id : node.name?.en || node.name?.ar || node._id;
   };
 
-  const getMotionFontFamily = () =>
-    isArabic ? '"SF Mada", "Mada", sans-serif' : '"Aloevera", Georgia, serif';
 
   const findPathToNode = (tree, targetId, path = []) => {
     for (const node of tree) {
@@ -120,7 +118,7 @@ export default function Controller() {
                     color: "#F8FCF6",
                     fontWeight: 700,
                     fontSize: "clamp(1.6rem, 3vw, 2.4rem)",
-                    fontFamily: getMotionFontFamily(),
+
                     textShadow: "0 8px 24px rgba(0,0,0,0.32)",
                   }}
                 >
@@ -212,7 +210,7 @@ export default function Controller() {
                     color: "#F8FCF6",
                     fontWeight: 700,
                     fontSize: "clamp(1.6rem, 3vw, 2.4rem)",
-                    fontFamily: getMotionFontFamily(),
+
                     textShadow: "0 8px 24px rgba(0,0,0,0.32)",
                   }}
                 >
@@ -357,7 +355,7 @@ export default function Controller() {
     borderRadius: "1.5rem",
     display: "flex",
     flexDirection: "column",
-    fontFamily: getMotionFontFamily(),
+
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
@@ -622,7 +620,7 @@ export default function Controller() {
                 fontSize: { xs: "2rem", sm: "3rem", md: "3.75rem" },
                 textAlign: "center",
                 px: 2,
-                fontFamily: getMotionFontFamily(),
+            
                 textShadow: "2px 2px 4px rgba(0,0,0,0.5)"
               }}
             >
@@ -767,7 +765,7 @@ export default function Controller() {
                   px: 2,
                   mb: "2rem",
                   width: "100%",
-                  fontFamily: getMotionFontFamily(),
+              
                 }}
               >
                 {getNodeLabel(node)}
@@ -839,7 +837,7 @@ export default function Controller() {
                             fontSize: "1rem",
                             maxWidth: "14rem",
                             textAlign: "center",
-                            fontFamily: getMotionFontFamily(),
+        
                           }}
                         >
                           {translations[language].noMediaForCategory}
