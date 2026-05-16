@@ -117,6 +117,14 @@ export default function useWebSocketController() {
     }
   }, [socket]);
 
+  const sendSelectMedia = useCallback(
+    (slug, lang) => {
+      if (!socket || !slug) return;
+      socket.emit("selectMedia", { slug, language: lang || "en" });
+    },
+    [socket]
+  );
+
   return {
     connected,
     sendCategorySelection,
@@ -130,5 +138,6 @@ export default function useWebSocketController() {
     sendCarbonMode,
     sendExperienceState,
     requestCategoryReload,
+    sendSelectMedia,
   };
 }

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Box, Typography, Button, Slider, Stack, Chip } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import useWebSocketController from "@/hooks/useWebSocketController";
 import LanguageSelector from "@/app/components/LanguageSelector";
 import { useLanguage } from "../context/LanguageContext";
@@ -22,6 +22,7 @@ export default function Controller() {
     currentExperience,
     currentExperienceState,
     sendExperienceState,
+    sendSelectMedia,
   } = useWebSocketController();
   const { language } = useLanguage();
   const languageRef = useRef(language);
@@ -41,7 +42,6 @@ export default function Controller() {
     if (!node) return "";
     return isArabic ? node.name?.ar || node.name?.en || node._id : node.name?.en || node.name?.ar || node._id;
   };
-
 
   const findPathToNode = (tree, targetId, path = []) => {
     for (const node of tree) {
@@ -281,7 +281,7 @@ export default function Controller() {
             language={language}
             interactive
             embedUrl={currentExperience?.config?.embedUrl || ""}
-            qrImageUrl={currentExperience?.config?.qrImageUrl || ""}
+            qrImageUrl={currentExperience?.config?.qrImageUrl || ""} 
             qrImageUrlEn={currentExperience?.config?.qrImageUrlEn || ""}
             qrImageUrlAr={currentExperience?.config?.qrImageUrlAr || ""}
             qrPosition={currentExperience?.config?.qrPosition}
@@ -344,32 +344,46 @@ export default function Controller() {
     sendLanguageChange(language);
   }, [language, sendLanguageChange]);
 
-  const bubbleBase = {
-    background: "linear-gradient(145deg, rgba(82,24,105,0.85) 0%, rgba(135,46,162,0.95) 50%, rgba(57,0,66,0.85) 100%)",
-    boxShadow: `rgba(0, 0, 0, 0.4) 0px 10px 30px,
-                rgba(82, 24, 105, 0.6) 0px 15px 35px -5px,
-                rgba(255, 255, 255, 0.1) 0px -4px 0px inset`,
-    color: "#F8FCF6",
+  const pageEase = [0.4, 0, 0.2, 1];
+  const pageTransition = { duration: 0.18, ease: pageEase };
+
+  /** Default = transparent (page bg shows through); active = original green gradient. */
+  const bubbleActiveBackground =
+    "linear-gradient(145deg, #1C932D 0%, #43B455 52%, #390042 100%)";
+  const bubbleDefaultShadow = `
+    0 0 0 1px rgba(248, 252, 246, 0.28),
+    0 0 0 1px rgba(7, 40, 11, 0.2) inset,
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 18px 42px rgba(0, 0, 0, 0.45),
+    0 6px 16px rgba(0, 0, 0, 0.28)
+  `;
+  const bubbleActiveShadow =
+    "0 0 0 1px rgba(248, 252, 246, 0.22), 0 0 28px rgba(28, 147, 45, 0.55)";
+
+  const getBubbleSx = (isActive, overrides = {}) => ({
     width: "clamp(9rem, 40vw, 14rem)",
     height: "clamp(9rem, 40vw, 14rem)",
     borderRadius: "1.5rem",
     display: "flex",
     flexDirection: "column",
-
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
     fontWeight: "bold",
     fontSize: "clamp(1.1rem, 4vw, 1.75rem)",
     padding: "0.5rem",
-    cursor: "pointer",
     userSelect: "none",
-    position: "relative",
     textTransform: "none",
-    flexShrink: 0,
-    transition: "box-shadow 0.2s, transform 0.2s",
-    border: "1px solid rgba(248, 252, 246, 0.15)",
-  };
+    transition: "box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease",
+    border: isActive
+      ? "1.5px solid rgba(248, 252, 246, 0.2)"
+      : "1.5px solid rgba(248, 252, 246, 0.38)",
+    color: "#F8FCF6",
+    background: isActive ? bubbleActiveBackground : "transparent",
+    boxShadow: isActive ? bubbleActiveShadow : bubbleDefaultShadow,
+    ...overrides,
+  });
 
   const translations = {
     en: {
@@ -408,8 +422,11 @@ export default function Controller() {
       if (node.children && node.children.length) {
         setOpenCategoryNode(nodeId);
         setSelectedPath([]);
+        setSelectedLeafId(null);
+        setSelectedMediaSlug(null);
       } else {
         setSelectedPath(path);
+        setSelectedLeafId(nodeId);
         setSelected({ category: node.name?.en || "", subcategory: "" });
         sendCategorySelection(null, null, language, path);
         setOpenCategoryNode(null);
@@ -420,19 +437,23 @@ export default function Controller() {
     if (openCategory === category) {
       setOpenCategory(null);
       setSelected({ category: "", subcategory: "" });
+      setSelectedLeafId(null);
       sendCategorySelection("", "", language);
     } else if (subcategories.length === 0) {
       if (selected.category === category && selected.subcategory === "") {
         setSelected({ category: "", subcategory: "" });
+        setSelectedLeafId(null);
         sendCategorySelection("", "", language);
       } else {
         setSelected({ category, subcategory: "" });
+        setSelectedLeafId(null);
         sendCategorySelection(category, "", language);
       }
       setOpenCategory(null);
     } else {
       setOpenCategory(category);
       setSelected({ category: "", subcategory: "" });
+      setSelectedLeafId(null);
     }
   };
 
@@ -452,10 +473,12 @@ export default function Controller() {
 
       if (node.children && node.children.length) {
         setOpenCategoryNode(nodeId);
+        setSelectedLeafId(null);
         return;
       }
 
       setSelectedPath(path);
+      setSelectedLeafId(nodeId);
       setSelected({ category: node?.name?.en || category, subcategory: "" });
       sendCategorySelection(null, null, language, path);
       return;
@@ -463,10 +486,12 @@ export default function Controller() {
 
     if (selected.category === category && selected.subcategory === subcategory) {
       setSelected({ category: "", subcategory: "" });
+      setSelectedLeafId(null);
       sendCategorySelection("", "", language);
       setOpenCategory(null);
     } else {
       setSelected({ category, subcategory });
+      setSelectedLeafId(null);
       sendCategorySelection(category, subcategory, language);
     }
   };
@@ -576,7 +601,7 @@ export default function Controller() {
         }}
       />
 
-      {/* Bottom Image masked with light green gradient */}
+      {/* Bottom Image: desktop mask layer */}
       <Box
         sx={{
           position: "fixed",
@@ -585,19 +610,51 @@ export default function Controller() {
           right: 0,
           height: "30vh",
           background: "linear-gradient(to top, rgba(93, 201, 108, 0.95) 0%, rgba(93, 201, 108, 0) 80%)",
-          maskImage: "url('/omanCity.webp')",
-          WebkitMaskImage: "url('/omanCity.webp')",
+          maskImage: "url('/MTCIT-omanCity.webp')",
+          WebkitMaskImage: "url('/MTCIT-omanCity.webp')",
           maskSize: "100% auto",
           WebkitMaskSize: "100% auto",
           maskPosition: "bottom left",
           WebkitMaskPosition: "bottom left",
           maskRepeat: "no-repeat",
           WebkitMaskRepeat: "no-repeat",
+          display: { xs: "none", md: "block" },
           zIndex: 2,
         }}
       />
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "30vh",
+          background: "linear-gradient(to top, rgba(93, 201, 108, 0.95) 0%, rgba(93, 201, 108, 0) 80%)",
+          maskImage: "url('/MTCIT-omanCity.webp')",
+          WebkitMaskImage: "url('/MTCIT-omanCity.webp')",
+          maskMode: "luminance",
+          WebkitMaskMode: "luminance",
+          maskSize: "100% auto",
+          WebkitMaskSize: "100% auto",
+          maskPosition: "bottom center",
+          WebkitMaskPosition: "bottom center",
+          maskRepeat: "no-repeat",
+          WebkitMaskRepeat: "no-repeat",
+          display: { xs: "block", md: "none" },
+          zIndex: 2,
+          pointerEvents: "none",
+        }}
+      />
 
+      <AnimatePresence mode="sync" initial={false}>
       {!openCategoryNode ? (
+        <motion.div
+          key="root-nodes"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={pageTransition}
+        >
         <Box sx={{ 
           zIndex: 3, 
           display: "flex", 
@@ -620,7 +677,7 @@ export default function Controller() {
                 fontSize: { xs: "2rem", sm: "3rem", md: "3.75rem" },
                 textAlign: "center",
                 px: 2,
-            
+
                 textShadow: "2px 2px 4px rgba(0,0,0,0.5)"
               }}
             >
@@ -652,50 +709,91 @@ export default function Controller() {
             </>
           ) : (
             <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: { xs: "1.5rem", md: "4rem" } }}>
-              {displayCategories.map((cat) => {
-                const category = cat.label;
-                const subcategories = (cat.children || []).map((child) => child.label);
-                const isActiveMain = selected.category === category && !selected.subcategory;
+          {displayCategories.map((cat) => {
+            const category = cat.label;
+            const subcategories = (cat.children || []).map((child) => child.label);
+            const isActiveMain = selected.category === category && !selected.subcategory;
 
-                return (
-                  <motion.div
-                    key={category}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    animate={isActiveMain ? { scale: 1.1, rotate: [0, 2, -2, 0] } : {}}
-                    transition={{ duration: 0.5 }}
-                    style={{
-                      ...bubbleBase,
-                      zIndex: 3,
-                      backgroundImage: isActiveMain
-                        ? "linear-gradient(145deg, #1C932D 0%, #43B455 52%, #390042 100%)"
-                        : bubbleBase.backgroundImage,
-                      boxShadow: isActiveMain
-                        ? "0 0 28px rgba(28, 147, 45, 0.55)"
-                        : bubbleBase.boxShadow,
-                    }}
-                    onClick={() => handleCategoryClick(category, subcategories, cat.id)}
-                  >
-                    {cat.icon && (
+            return (
+              <motion.div
+                key={category}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+                animate={
+                  isActiveMain
+                    ? { scale: 1.08, y: -2, rotate: 0 }
+                    : { scale: 1, y: 0, rotate: 0 }
+                }
+                transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                style={{
+                  width: "clamp(9rem, 40vw, 14rem)",
+                  height: "clamp(9rem, 40vw, 14rem)",
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  position: "relative",
+                  zIndex: 3,
+                }}
+                onClick={() => handleCategoryClick(category, subcategories, cat.id)}
+              >
+                <Box sx={getBubbleSx(isActiveMain, { width: "100%", height: "100%" })}>
+                    {isActiveMain && (
                       <Box
-                        component="img"
-                        src={cat.icon}
-                        sx={{ width: { xs: "3rem", md: "6rem" }, height: { xs: "3rem", md: "6rem" }, mb: { xs: 1, md: 2 }, objectFit: "contain", borderRadius: "0.75rem" }}
-                      />
+                        sx={{
+                          position: "absolute",
+                          top: 10,
+                          right: 10,
+                          width: 28,
+                          height: 28,
+                          borderRadius: "999px",
+                          bgcolor: "rgba(248,252,246,0.98)",
+                          color: "#1C932D",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 8px 18px rgba(0,0,0,0.22)",
+                        }}
+                      >
+                        <CheckIcon sx={{ fontSize: 18 }} />
+                      </Box>
                     )}
+                {cat.icon && (
+                  <Box
+                    component="img"
+                    src={cat.icon}
+                        sx={{ width: { xs: "3rem", md: "6rem" }, height: { xs: "3rem", md: "6rem" }, mb: { xs: 1, md: 2 }, objectFit: "contain", borderRadius: "0.75rem" }}
+                  />
+                )}
                     <Typography sx={{ fontWeight: "bold", fontSize: "clamp(1rem, 3vw, 1.5rem)", px: { xs: 1, md: 2 } }}>
-                      {category}
-                    </Typography>
-                  </motion.div>
-                );
-              })}
+                  {category}
+                </Typography>
+                </Box>
+              </motion.div>
+            );
+          })}
             </Box>
           )}
         </Box>
+        </motion.div>
       ) : (
         (() => {
           const node = findNodeById(categoryTree, openCategoryNode);
-          if (!node || !node.children || node.children.length === 0) return null;
+          if (!node || !node.children || node.children.length === 0) {
+            return (
+              <Box
+                sx={{
+                  minHeight: "100vh",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 3,
+                }}
+              >
+                <Button variant="contained" onClick={() => setOpenCategoryNode(null)}>
+                  {translations[language].back}
+                </Button>
+              </Box>
+            );
+          }
 
           const currentPath = findPathToNode(categoryTree, openCategoryNode) || [];
           const parentPath = currentPath.slice(0, -1);
@@ -703,16 +801,22 @@ export default function Controller() {
             parentPath.length > 0 ? findNodeById(categoryTree, parentPath[parentPath.length - 1]) : null;
 
           return (
+            <motion.div
+              key={`child-nodes-${openCategoryNode}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={pageTransition}
+            >
             <Box
               sx={{
-                width: "100%",
-                minHeight: "100vh",
+                zIndex: 3,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "2rem",
-                zIndex: 60,
+                width: "100%",
+                minHeight: "100vh",
                 py: { xs: "6rem", md: "8rem" },
                 position: "relative",
               }}
@@ -765,7 +869,7 @@ export default function Controller() {
                   px: 2,
                   mb: "2rem",
                   width: "100%",
-              
+
                 }}
               >
                 {getNodeLabel(node)}
@@ -837,7 +941,7 @@ export default function Controller() {
                             fontSize: "1rem",
                             maxWidth: "14rem",
                             textAlign: "center",
-        
+                            
                           }}
                         >
                           {translations[language].noMediaForCategory}
@@ -852,27 +956,30 @@ export default function Controller() {
                           key={`media-${row.slug}`}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          animate={active ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
-                          transition={{ duration: 0.5 }}
+                          animate={active ? { scale: 1.06 } : { scale: 1 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                          style={{
+                            width: "10rem",
+                            height: "10rem",
+                            zIndex: 61,
+                            cursor: "pointer",
+                            position: "relative",
+                            flexShrink: 0,
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             sendSelectMedia(row.slug, language);
                             setSelectedMediaSlug(row.slug);
                           }}
-                          style={{
-                            ...bubbleBase,
-                            width: "10rem",
-                            height: "10rem",
-                            fontSize: "1rem",
-                            zIndex: 61,
-                            cursor: "pointer",
-                            position: "relative",
-                            backgroundImage: active
-                              ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
-                              : bubbleBase.backgroundImage,
-                            boxShadow: active ? "0 0 25px rgba(28, 147, 45, 0.65)" : bubbleBase.boxShadow,
-                          }}
                         >
+                          <Box
+                            sx={getBubbleSx(active, {
+                              width: "100%",
+                              height: "100%",
+                              fontSize: "1rem",
+                              position: "relative",
+                            })}
+                          >
                           <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
                             {row.title}
                           </Typography>
@@ -891,53 +998,68 @@ export default function Controller() {
                               <CheckIcon sx={{ fontSize: 22, color: "#F8FCF6" }} />
                             </Box>
                           )}
+                          </Box>
                         </motion.div>
                       );
                     });
                   }
 
                   return node.children.map((child) => {
-                    const hasChildren = child.children && child.children.length > 0;
-                    const isSelectedLeaf = selectedLeafId === child._id && !hasChildren;
+                  const hasChildren = child.children && child.children.length > 0;
+                    const childId = String(child._id || child.id || "");
+                    const leafId = String(selectedPath?.[selectedPath.length - 1] || "");
+                    const isActiveChild =
+                      (leafId && leafId === childId) ||
+                      (selected.category &&
+                        selected.subcategory &&
+                        selected.category === (node.name?.en || "") &&
+                        selected.subcategory === (child.name?.en || child.label || ""));
+                    const isSelectedLeaf =
+                      !hasChildren &&
+                      (String(selectedLeafId || "") === childId || isActiveChild);
 
-                    return (
-                      <motion.div
-                        key={child._id || child.id}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        animate={isSelectedLeaf ? { scale: 1.15, rotate: [0, 2, -2, 0] } : {}}
-                        transition={{ duration: 0.5 }}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (hasChildren) {
-                            setOpenCategoryNode(child._id);
-                            setSelectedLeafId(null);
-                          } else {
-                            handleSubBubbleClick(
-                              node.name?.en || "",
-                              child.name?.en || child.label,
-                              child._id || child.id
-                            );
-                          }
-                        }}
-                        style={{
-                          ...bubbleBase,
-                          width: "10rem",
-                          height: "10rem",
+                  return (
+                    <motion.div
+                      key={child._id || child.id}
+                      whileHover={{ scale: 1.06 }}
+                      whileTap={{ scale: 0.95 }}
+                      animate={isSelectedLeaf ? { scale: 1.06 } : { scale: 1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                      style={{
+                        width: "10rem",
+                        height: "10rem",
+                        zIndex: 61,
+                        cursor: "pointer",
+                        position: "relative",
+                        flexShrink: 0,
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (hasChildren) {
+                          setOpenCategoryNode(child._id);
+                          setSelectedLeafId(null);
+                          setSelectedMediaSlug(null);
+                        } else {
+                          handleSubBubbleClick(
+                            node.name?.en || "",
+                            child.name?.en || child.label,
+                            child._id || child.id
+                          );
+                        }
+                      }}
+                    >
+                      <Box
+                        sx={getBubbleSx(isSelectedLeaf, {
+                          width: "100%",
+                          height: "100%",
                           fontSize: "1rem",
-                          zIndex: 61,
-                          backgroundImage: isSelectedLeaf
-                            ? "linear-gradient(145deg, #43B455 0%, #1C932D 100%)"
-                            : bubbleBase.backgroundImage,
-                          boxShadow: isSelectedLeaf
-                            ? "0 0 25px rgba(28, 147, 45, 0.65)"
-                            : bubbleBase.boxShadow,
-                        }}
+                          position: "relative",
+                        })}
                       >
-                        {child.icon && (
-                          <Box
-                            component="img"
-                            src={child.icon}
+                      {child.icon && (
+                        <Box
+                          component="img"
+                          src={child.icon}
                             sx={{
                               width: "4rem",
                               height: "4rem",
@@ -945,50 +1067,43 @@ export default function Controller() {
                               objectFit: "contain",
                               borderRadius: "0.5rem",
                             }}
-                          />
-                        )}
-                        <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
-                          {getNodeLabel(child)}
-                        </Typography>
-                        {(() => {
-                          const leafId = String(selectedPath?.[selectedPath.length - 1] || "");
-                          const childId = String(child._id || child.id || "");
-                          const isActiveChild =
-                            (leafId && leafId === childId) ||
-                            (selected.category &&
-                              selected.subcategory &&
-                              selected.category === (node.name?.en || "") &&
-                              selected.subcategory === (child.name?.en || child.label || ""));
-                          return isActiveChild ? (
-                            <Box
-                              sx={{
-                                position: "absolute",
-                                top: 8,
-                                right: 8,
-                                width: 26,
-                                height: 26,
-                                borderRadius: "999px",
-                                bgcolor: "rgba(248, 252, 246, 0.95)",
-                                color: "#1C932D",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
-                              }}
-                            >
-                              <CheckIcon sx={{ fontSize: 16 }} />
-                            </Box>
-                          ) : null;
-                        })()}
-                      </motion.div>
-                    );
+                        />
+                      )}
+                      <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem", px: 1 }}>
+                        {getNodeLabel(child)}
+                      </Typography>
+                      {isSelectedLeaf && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                              width: 28,
+                              height: 28,
+                              borderRadius: "999px",
+                              bgcolor: "rgba(248,252,246,0.98)",
+                              color: "#1C932D",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow: "0 8px 18px rgba(0,0,0,0.22)",
+                            }}
+                          >
+                            <CheckIcon sx={{ fontSize: 18 }} />
+                        </Box>
+                      )}
+                      </Box>
+                    </motion.div>
+                  );
                   });
                 })()}
               </Box>
             </Box>
+            </motion.div>
           );
         })()
       )}
+      </AnimatePresence>
 
        {/* Removed Carbon Footprint Bubble */}
     </Box>
