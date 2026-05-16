@@ -131,7 +131,7 @@ export default function BackgroundSlideshow({
         />
       )}
 
-      <FuturisticFrame language={language} />
+      <FuturisticFrame />
 
       {title ? (
         <Typography
