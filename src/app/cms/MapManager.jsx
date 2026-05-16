@@ -232,16 +232,12 @@ export default function MapManager() {
 
         <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: "1px solid rgba(0,0,0,0.08)" }}>
           <Stack spacing={2.5}>
-            {/* Category selection — locked when editing */}
+            {/* Category selection */}
             <Box>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
                 Category
               </Typography>
-              {formMode === "edit" ? (
-                <Chip label={editingCategory?.label} variant="outlined" sx={{ fontWeight: 600 }} />
-              ) : (
-                renderCategorySelectors()
-              )}
+              {renderCategorySelectors()}
             </Box>
 
             {/* Embed URL */}
