@@ -91,39 +91,28 @@ export default function MapEmbedExperience({
           <Box
             sx={{
               position: "relative",
+              height: "clamp(460px, 68vh, 860px)",
               borderRadius: "28px",
               overflow: "hidden",
-              border: "1px solid rgba(248,252,246,0.12)",
-              background: "transparent",
+              border: "1px solid rgba(255,255,255,0.1)",
+              bgcolor: "#0B1714",
               boxShadow: "0 18px 40px rgba(0,0,0,0.24)",
-              p: 0,
             }}
           >
             <Box
+              component="iframe"
+              src={resolvedEmbedUrl}
+              title="Embedded map controller preview"
+              loading="lazy"
+              allowFullScreen
               sx={{
-                position: "relative",
-                height: "clamp(460px, 68vh, 860px)",
-                borderRadius: "28px",
-                overflow: "hidden",
-                border: "1px solid rgba(255,255,255,0.1)",
-                bgcolor: "#0B1714",
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                border: 0,
               }}
-            >
-              <Box
-                component="iframe"
-                src={resolvedEmbedUrl}
-                title="Embedded map controller preview"
-                loading="lazy"
-                allowFullScreen
-                sx={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  border: 0,
-                }}
-              />
-            </Box>
+            />
           </Box>
         </Stack>
       </Box>

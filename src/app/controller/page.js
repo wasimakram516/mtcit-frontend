@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Box, Typography, Button, Slider, Stack, Chip } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
@@ -79,6 +79,16 @@ export default function Controller() {
 
   const getExperienceShellWidth = (experienceType) =>
     experienceType === "map-embed" ? "min(90vw, 1440px)" : "min(92vw, 1040px)";
+
+  const resetToRoot = useCallback(() => {
+    setOpenCategory(null);
+    setSelected({ category: "", subcategory: "" });
+    setSelectedPath([]);
+    setOpenCategoryNode(null);
+    setSelectedLeafId(null);
+    setSelectedMediaSlug(null);
+    sendCategorySelection("", "", languageRef.current);
+  }, [sendCategorySelection]);
 
   const renderExperienceComponent = (experienceType, state, isInteractive = true) => {
     if (isInteractive) {
@@ -301,17 +311,25 @@ export default function Controller() {
     }
   }, [connected, sendCarbonMode]);
 
+  const hasControllerSelection =
+    Boolean(selected.category) ||
+    Boolean(selected.subcategory) ||
+    selectedPath.length > 0 ||
+    Boolean(openCategory) ||
+    Boolean(openCategoryNode) ||
+    Boolean(selectedLeafId) ||
+    Boolean(selectedMediaSlug) ||
+    Boolean(currentExperience?.type);
+
   useEffect(() => {
-    if (!selected.category && !selected.subcategory) return;
+    if (!hasControllerSelection) return;
 
     const timer = setTimeout(() => {
-      setSelected({ category: "", subcategory: "" });
-      setOpenCategory(null);
-      sendCategorySelection("", "", language);
+      resetToRoot();
     }, 90000);
 
     return () => clearTimeout(timer);
-  }, [selected, sendCategorySelection, language]);
+  }, [hasControllerSelection, resetToRoot]);
 
   useEffect(() => {
     if (selectedPath.length) {
@@ -478,16 +496,6 @@ export default function Controller() {
       const selectedNode = findNodeById(categoryTree, selectedLeafId);
       return Boolean(selectedNode && !selectedNode.parent);
     })();
-
-  const resetToRoot = () => {
-    setOpenCategory(null);
-    setSelected({ category: "", subcategory: "" });
-    setSelectedPath([]);
-    setOpenCategoryNode(null);
-    setSelectedLeafId(null);
-    setSelectedMediaSlug(null);
-    sendCategorySelection("", "", language);
-  };
 
   return (
     <Box
