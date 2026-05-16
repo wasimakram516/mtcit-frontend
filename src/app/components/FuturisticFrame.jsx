@@ -28,8 +28,8 @@ export default function FuturisticFrame({ language = "en" }) {
     <Box
       sx={{
         position: "absolute",
-        width: "clamp(24px, 2.5vw, 42px)",
-        height: "clamp(24px, 2.5vw, 42px)",
+        width: "clamp(32px, 3.5vw, 56px)",
+        height: "clamp(32px, 3.5vw, 56px)",
         top,
         bottom,
         left,
@@ -83,7 +83,7 @@ export default function FuturisticFrame({ language = "en" }) {
           flexDirection: "column",
           alignItems: "center",
           gap: "5px",
-          opacity: 0.65,
+          opacity: 0.85,
           pointerEvents: "none",
           whiteSpace: "nowrap",
         }}
@@ -94,8 +94,8 @@ export default function FuturisticFrame({ language = "en" }) {
             <Box
               key={i}
               sx={{
-                width: "clamp(3px, 0.3vw, 5px)",
-                height: "clamp(3px, 0.3vw, 5px)",
+                width: "clamp(5px, 0.45vw, 7px)",
+                height: "clamp(5px, 0.45vw, 7px)",
                 borderRadius: "50%",
                 bgcolor: "rgba(255,255,255,0.45)",
               }}
@@ -106,8 +106,8 @@ export default function FuturisticFrame({ language = "en" }) {
         {/* Badge text */}
         <Typography
           sx={{
-            fontSize: "clamp(0.55rem, 0.9vw, 0.85rem)",
-            letterSpacing: "0.45em",
+            fontSize: "clamp(0.85rem, 1.4vw, 1.4rem)",
+            letterSpacing: "0.4em",
             color: "rgba(255,255,255,0.72)",
             textTransform: "uppercase",
             fontWeight: 500,
