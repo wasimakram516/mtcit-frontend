@@ -134,10 +134,27 @@ export default function MapManager() {
         await updateCategoryWithProgress(editingCategory._id, clearForm, () => {});
       }
 
+      const categoryChanged = formMode === "edit" && editingCategory && editingCategory._id !== selectedCategoryId;
+
+      const mapEmbedMeta = {
+        enabled: true,
+        embedUrl: normalizeMapEmbedUrl(embedUrl),
+        qrPosition: { x: 72, y: 74 },
+        qrSize: { width: 16, height: 16 },
+      };
+
+      // When moving to a different category, carry existing S3 URLs over so they aren't lost
+      if (categoryChanged) {
+        if (qrPreviewEn && !qrPreviewEn.startsWith("blob:") && !removeQrEn && !qrFileEn) {
+          mapEmbedMeta.qrImageUrlEn = qrPreviewEn;
+        }
+        if (qrPreviewAr && !qrPreviewAr.startsWith("blob:") && !removeQrAr && !qrFileAr) {
+          mapEmbedMeta.qrImageUrlAr = qrPreviewAr;
+        }
+      }
+
       const formData = new FormData();
-      formData.append("metadata", JSON.stringify({
-        mapEmbed: { enabled: true, embedUrl: normalizeMapEmbedUrl(embedUrl), qrPosition: { x: 72, y: 74 }, qrSize: { width: 16, height: 16 } },
-      }));
+      formData.append("metadata", JSON.stringify({ mapEmbed: mapEmbedMeta }));
       if (removeQrEn) formData.append("removeMapQrEn", "true");
       if (removeQrAr) formData.append("removeMapQrAr", "true");
       if (qrFileEn) formData.append("mapQrEn", qrFileEn);
