@@ -10,6 +10,7 @@ import BackgroundSlideshow from "@/app/components/BackgroundSlideshow";
 import StrategyForecastExperience from "@/app/components/StrategyForecastExperience";
 import ElectricVehiclesExperience from "@/app/components/ElectricVehiclesExperience";
 import MapEmbedExperience from "@/app/components/MapEmbedExperience";
+import LogoLoader from "@/app/components/LogoLoader";
 
 /** Layer X/Y/size are 0–100% of the media-stage box; keep rect inside so nothing spills past that frame. */
 function getMediaLayerRect(position, size) {
@@ -34,6 +35,7 @@ export default function BigScreenPage() {
     carbonActive,
     carbonLevel,
     categoryTree,
+    isLoading,
   } = useWebSocketBigScreen();
 
   const getCarbonColor = (value) => {
@@ -474,6 +476,8 @@ export default function BigScreenPage() {
 
         </Box>
       </Box>
+
+      <LogoLoader visible={isLoading} language={currentLanguage} />
     </Box>
   );
 }
