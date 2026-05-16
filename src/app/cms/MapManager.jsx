@@ -124,6 +124,16 @@ export default function MapManager() {
     setUploadProgress(0);
     setMessage({ type: "", text: "" });
     try {
+      // If editing and the category changed, clear the old category's map config first
+      if (formMode === "edit" && editingCategory && editingCategory._id !== selectedCategoryId) {
+        const clearForm = new FormData();
+        clearForm.append("metadata", JSON.stringify({
+          mapEmbed: { enabled: false, embedUrl: "", qrImageUrl: "", qrImageUrlEn: "", qrImageUrlAr: "" },
+        }));
+        clearForm.append("removeMapQr", "true");
+        await updateCategoryWithProgress(editingCategory._id, clearForm, () => {});
+      }
+
       const formData = new FormData();
       formData.append("metadata", JSON.stringify({
         mapEmbed: { enabled: true, embedUrl: normalizeMapEmbedUrl(embedUrl), qrPosition: { x: 72, y: 74 }, qrSize: { width: 16, height: 16 } },
