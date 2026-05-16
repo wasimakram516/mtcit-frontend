@@ -734,7 +734,7 @@ export default function CMSPage() {
 
       {activeTab === 1 && (
         <Box sx={{ mt: 3, maxWidth: "1000px", mx: "auto" }}>
-          <CategoryManager onChange={syncMediaAndCategories} />
+          <CategoryManager onChange={() => { syncRef.current.fetchMedia(); syncRef.current.requestCategoryReload(); }} />
         </Box>
       )}
 
