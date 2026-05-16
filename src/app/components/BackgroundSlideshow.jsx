@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Typography } from "@mui/material";
 import { normalizeSlidesForPlayback, pickSlideSource, pickDisplayTitle } from "@/utils/backgroundSlides";
+import FuturisticFrame from "./FuturisticFrame";
 
 const IMAGE_DURATION_MS = 30000;
 
@@ -129,6 +130,8 @@ export default function BackgroundSlideshow({
           }}
         />
       )}
+
+      <FuturisticFrame language={language} />
 
       {title ? (
         <Typography
