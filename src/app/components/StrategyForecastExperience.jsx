@@ -10,7 +10,21 @@ function lerp(start, end, amount) {
   return start + (end - start) * amount;
 }
 
-function getForecastMetrics(progress) {
+const airQualityLabels = {
+  en: { poor: "Poor", moderate: "Moderate", improving: "Improving", good: "Good", excellent: "Excellent" },
+  ar: { poor: "سيئة", moderate: "متوسطة", improving: "تتحسن", good: "جيدة", excellent: "ممتازة" },
+};
+
+function getAirQualityLabel(score, language = "en") {
+  const l = airQualityLabels[language] || airQualityLabels.en;
+  if (score >= 90) return l.excellent;
+  if (score >= 72) return l.good;
+  if (score >= 52) return l.improving;
+  if (score >= 34) return l.moderate;
+  return l.poor;
+}
+
+function getForecastMetrics(progress, language = "en") {
   const safeProgress = clamp(Number(progress) || 0, 0, 100);
   const t = safeProgress / 100;
   const year = Math.round(lerp(2030, 2050, t));
@@ -18,19 +32,13 @@ function getForecastMetrics(progress) {
   const co2Reduced = Math.round(lerp(3, 100, t));
   const airQualityScore = Math.round(lerp(20, 98, t));
 
-  let airQualityLabel = "Poor";
-  if (airQualityScore >= 90) airQualityLabel = "Excellent";
-  else if (airQualityScore >= 72) airQualityLabel = "Good";
-  else if (airQualityScore >= 52) airQualityLabel = "Improving";
-  else if (airQualityScore >= 34) airQualityLabel = "Moderate";
-
   return {
     t,
     year,
     evAdoption,
     co2Reduced,
     airQualityScore,
-    airQualityLabel,
+    airQualityLabel: getAirQualityLabel(airQualityScore, language),
     evVehicles: Math.round(lerp(2.5, 10, t)),
   };
 }
@@ -64,132 +72,167 @@ const copy = {
   },
 };
 
+// Gas car SVG — matches drawGasCar() from the HTML reference
+// viewBox 0 0 52 22: w=52, h=22 (h≈w*0.42=21.84)
+function GasCarSVG({ s = 1 }) {
+  return (
+    <svg width={52 * s} height={22 * s} viewBox="0 0 52 22" style={{ display: "block" }}>
+      {/* Body */}
+      <rect x="0" y="4.84" width="52" height="11.44" rx="3" fill="#C0392B" />
+      {/* Roof / cabin trapezoid */}
+      <polygon points="7.28,4.84 11.44,0 41.6,0 45.24,4.84" fill="#96281B" />
+      {/* Window */}
+      <rect x="11.96" y="0.66" width="28.08" height="3.96" rx="2" fill="rgba(140,190,220,0.45)" />
+      {/* Headlight – left = front */}
+      <rect x="3.64" y="6.16" width="4.16" height="3.08" rx="1" fill="rgba(200,150,50,0.75)" />
+      {/* Tail light – right = rear */}
+      <rect x="43.68" y="6.6" width="4.68" height="3.96" rx="2" fill="rgba(255,50,30,0.9)" />
+      {/* Ground shadow */}
+      <rect x="2.6" y="16.28" width="46.8" height="2.2" fill="rgba(80,55,25,0.3)" />
+      {/* Rear wheel */}
+      <circle cx="11.96" cy="16.28" r="4.84" fill="#111" />
+      <circle cx="11.96" cy="16.28" r="2.86" fill="#2a2a2a" />
+      {/* Front wheel */}
+      <circle cx="40.04" cy="16.28" r="4.84" fill="#111" />
+      <circle cx="40.04" cy="16.28" r="2.86" fill="#2a2a2a" />
+    </svg>
+  );
+}
+
+// Cybertruck SVG — matches drawCybertruck() from the HTML reference
+// viewBox 0 0 58 22: w=58, h=22 (h≈w*0.38=22.04)
+function CybertruckSVG({ s = 1 }) {
+  return (
+    <svg width={58 * s} height={22 * s} viewBox="0 0 58 22" style={{ display: "block" }}>
+      {/* Lower body base */}
+      <rect x="0" y="6.6" width="58" height="11" rx="2" fill="#6b7078" />
+      {/* Main angular body */}
+      <polygon
+        points="1.16,6.6 16.24,0.44 35.96,0.44 51.04,6.16 56.84,6.6 56.84,17.6 1.16,17.6"
+        fill="#9a9fa8"
+      />
+      {/* Highlight edge strip */}
+      <polygon
+        points="1.74,6.6 16.24,0.66 35.96,0.66 50.46,6.16 56.26,6.6 56.26,7.04 50.46,6.6 35.96,1.1 16.24,1.1 1.74,7.04"
+        fill="#d0d5de"
+      />
+      {/* Left window pane */}
+      <rect x="16.82" y="1.1" width="8.7" height="4.84" fill="rgba(180,220,240,0.55)" />
+      {/* Right window pane – trapezoid */}
+      <polygon points="26.68,1.1 35.38,1.1 41.76,5.94 26.68,5.94" fill="rgba(180,220,240,0.55)" />
+      {/* Window divider */}
+      <line x1="26.1" y1="1.1" x2="26.1" y2="5.94" stroke="rgba(150,165,175,0.4)" strokeWidth="0.8" />
+      {/* Headlight – left = front */}
+      <rect x="0.58" y="7.04" width="8.12" height="2.2" rx="1" fill="rgba(210,230,255,0.7)" />
+      {/* Tail light – right = rear */}
+      <rect x="49.88" y="7.04" width="6.96" height="2.2" rx="1" fill="rgba(255,70,70,0.9)" />
+      {/* Ground shadow */}
+      <rect x="2.32" y="16.72" width="53.36" height="2.2" fill="rgba(100,110,120,0.22)" />
+      {/* Left wheel */}
+      <circle cx="11.6" cy="16.72" r="5.5" fill="#1a1a22" />
+      <circle cx="11.6" cy="16.72" r="3.52" fill="#2e2e38" />
+      <circle cx="11.6" cy="16.72" r="1.76" fill="none" stroke="rgba(180,200,220,0.6)" strokeWidth="1" />
+      {/* Right wheel */}
+      <circle cx="46.4" cy="16.72" r="5.5" fill="#1a1a22" />
+      <circle cx="46.4" cy="16.72" r="3.52" fill="#2e2e38" />
+      <circle cx="46.4" cy="16.72" r="1.76" fill="none" stroke="rgba(180,200,220,0.6)" strokeWidth="1" />
+    </svg>
+  );
+}
+
 function Vehicle({ electric, size = 1, top = "50%", left = "0%", popping = false }) {
-  const bodyColor = electric ? "#15B77E" : "#C65342";
-  const roofColor = electric ? "#96F5D3" : "#F0B0A6";
-  const glow = electric ? "rgba(21,183,126,0.42)" : "rgba(198,83,66,0.2)";
+  const badgeBg = electric ? "rgba(0,175,108,0.92)" : "rgba(200,50,30,0.9)";
+  const badgeIcon = electric ? "⚡" : "⛽";
+  const badgeSize = 20 * size;
+  const badgeFontSize = 11 * size;
 
   return (
-    <Box
-      sx={{
-        position: "absolute",
-        top,
-        left,
-        width: `${54 * size}px`,
-        height: `${30 * size}px`,
-        transform: "translate(-50%, -50%)",
-        animation: "vehicleBob 1.8s ease-in-out infinite",
-        "@keyframes vehicleBob": {
-          "0%, 100%": { marginTop: 0 },
-          "50%": { marginTop: -0.5 },
-        },
-      }}
-    >
+    // Outer Box: positions the vehicle on the stage (no animation so transform isn't clobbered)
+    <Box sx={{ position: "absolute", top, left, transform: "translate(-50%, -50%)", zIndex: 2 }}>
+      {/* Inner Box: flex column + bob animation */}
       <Box
         sx={{
-          position: "absolute",
-          left: `${7 * size}px`,
-          bottom: `${11 * size}px`,
-          width: `${24 * size}px`,
-          height: `${10 * size}px`,
-          borderRadius: `${5 * size}px ${5 * size}px 1px 1px`,
-          bgcolor: roofColor,
-          opacity: 0.92,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: `${3 * size}px`,
+          animation: "vehicleBob 1.8s ease-in-out infinite",
+          "@keyframes vehicleBob": {
+            "0%, 100%": { transform: "translateY(0)" },
+            "50%": { transform: `translateY(${-2 * size}px)` },
+          },
+          position: "relative",
         }}
-      />
-      <Box
-        sx={{
-          position: "absolute",
-          left: 0,
-          bottom: `${6 * size}px`,
-          width: `${54 * size}px`,
-          height: `${14 * size}px`,
-          borderRadius: `${5 * size}px`,
-          bgcolor: bodyColor,
-          boxShadow: `0 8px 20px ${glow}`,
-        }}
-      />
-      {electric && (
+      >
+        {/* Badge — matches HTML drawIcon: colored rounded square + emoji */}
         <Box
           sx={{
-            position: "absolute",
-            left: `${21 * size}px`,
-            bottom: `${18 * size}px`,
-            width: `${9 * size}px`,
-            height: `${15 * size}px`,
-            clipPath: "polygon(42% 0, 100% 0, 62% 40%, 100% 40%, 26% 100%, 44% 58%, 10% 58%)",
-            bgcolor: "#D8FF72",
-            filter: "drop-shadow(0 0 8px rgba(216,255,114,0.85))",
-            animation: "evPulse 1.2s ease-in-out infinite",
-            "@keyframes evPulse": {
-              "0%, 100%": { opacity: 0.55, transform: "translateY(0) scale(0.9)" },
-              "50%": { opacity: 1, transform: "translateY(-2px) scale(1.04)" },
-            },
+            width: `${badgeSize}px`,
+            height: `${badgeSize}px`,
+            borderRadius: `${5 * size}px`,
+            bgcolor: badgeBg,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: `${badgeFontSize}px`,
+            lineHeight: 1,
+            flexShrink: 0,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+            zIndex: 2,
+            position: "relative",
           }}
-        />
-      )}
-      {popping && (
-        <>
-          <Box
-            sx={{
-              position: "absolute",
-              left: `${13 * size}px`,
-              bottom: `${10 * size}px`,
-              width: `${28 * size}px`,
-              height: `${28 * size}px`,
-              borderRadius: "50%",
-              border: "2px solid rgba(43,228,149,0.9)",
-              animation: "evBurst 0.8s ease-out forwards",
-              "@keyframes evBurst": {
-                "0%": { transform: "scale(0.4)", opacity: 0.95 },
-                "100%": { transform: "scale(1.8)", opacity: 0 },
-              },
-            }}
-          />
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Box
-              key={index}
-              sx={{
-                position: "absolute",
-                left: `${22 * size}px`,
-                bottom: `${18 * size}px`,
-                width: `${5 * size}px`,
-                height: `${5 * size}px`,
-                borderRadius: "50%",
-                bgcolor: ["#00e896", "#00d4ff", "#a0ff60", "#50ffcc", "#00c87a", "#ffffff"][index],
-                animation: `evSpark${index} 0.8s ease-out forwards`,
-                [`@keyframes evSpark${index}`]: {
-                  "0%": { transform: "translate(0, 0) scale(0.8)", opacity: 1 },
-                  "100%": {
-                    transform: `translate(${Math.cos((index / 6) * Math.PI * 2) * 24 * size}px, ${Math.sin((index / 6) * Math.PI * 2) * 24 * size}px) scale(0.3)`,
-                    opacity: 0,
+        >
+          {badgeIcon}
+
+          {/* Popping burst — centered on badge when vehicle converts to EV */}
+          {popping && (
+            <>
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: "50%", left: "50%",
+                  transform: "translate(-50%,-50%)",
+                  width: `${28 * size}px`,
+                  height: `${28 * size}px`,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(43,228,149,0.9)",
+                  animation: "evBurst 0.8s ease-out forwards",
+                  "@keyframes evBurst": {
+                    "0%": { transform: "translate(-50%,-50%) scale(0.4)", opacity: 0.95 },
+                    "100%": { transform: "translate(-50%,-50%) scale(2.2)", opacity: 0 },
                   },
-                },
-              }}
-            />
-          ))}
-        </>
-      )}
-      {[10, 38].map((wheelLeft) => (
-        <Box
-          key={wheelLeft}
-          sx={{
-            position: "absolute",
-            left: `${wheelLeft * size}px`,
-            bottom: 0,
-            width: `${10 * size}px`,
-            height: `${10 * size}px`,
-            borderRadius: "50%",
-            bgcolor: "#17201D",
-            border: "2px solid #D3DDD7",
-            animation: "wheelSpin 0.9s linear infinite",
-            "@keyframes wheelSpin": {
-              "0%": { transform: "rotate(0deg)" },
-              "100%": { transform: "rotate(360deg)" },
-            },
-          }}
-        />
-      ))}
+                  pointerEvents: "none",
+                }}
+              />
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    position: "absolute",
+                    top: "50%", left: "50%",
+                    width: `${5 * size}px`,
+                    height: `${5 * size}px`,
+                    borderRadius: "50%",
+                    bgcolor: ["#00e896","#00d4ff","#a0ff60","#50ffcc","#00c87a","#ffffff"][i],
+                    animation: `evSpark${i} 0.8s ease-out forwards`,
+                    [`@keyframes evSpark${i}`]: {
+                      "0%": { transform: "translate(-50%,-50%) scale(0.8)", opacity: 1 },
+                      "100%": {
+                        transform: `translate(calc(-50% + ${Math.cos((i / 6) * Math.PI * 2) * 22 * size}px), calc(-50% + ${Math.sin((i / 6) * Math.PI * 2) * 22 * size}px)) scale(0.3)`,
+                        opacity: 0,
+                      },
+                    },
+                    pointerEvents: "none",
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </Box>
+
+        {/* Car SVG — gas car or cybertruck matching the HTML canvas designs */}
+        {electric ? <CybertruckSVG s={size} /> : <GasCarSVG s={size} />}
+      </Box>
     </Box>
   );
 }
@@ -205,7 +248,7 @@ export default function StrategyForecastExperience({
   const isArabic = language === "ar";
   const t = copy[language] || copy.en;
   const safeProgress = clamp(Number(progress) || 0, 0, 100);
-  const metrics = useMemo(() => getForecastMetrics(safeProgress), [safeProgress]);
+  const metrics = useMemo(() => getForecastMetrics(safeProgress, language), [safeProgress, language]);
   const prevEvCountRef = useRef(metrics.evVehicles);
   const [poppingVehicles, setPoppingVehicles] = useState([]);
   const gasVehicles = Math.max(0, 10 - metrics.evVehicles);
@@ -254,7 +297,7 @@ export default function StrategyForecastExperience({
         justifyContent="space-between"
         sx={{ mb: 2.5, pl: showBackButton ? 7 : 0 }}
       >
-        <Box sx={{ flex: 1, textAlign: "left" }}>
+        <Box sx={{ flex: 1, textAlign: isArabic ? "right" : "left" }}>
           <Typography
             sx={{
               fontSize: interactive
@@ -271,7 +314,7 @@ export default function StrategyForecastExperience({
             sx={{
               opacity: 0.88,
               mt: 0.5,
-              textAlign: "left",
+              textAlign: isArabic ? "right" : "left",
               fontSize: interactive
                 ? "clamp(0.92rem, 1.4vw, 1.1rem)"
                 : "clamp(0.9rem, 1.2vw, 1rem)",
