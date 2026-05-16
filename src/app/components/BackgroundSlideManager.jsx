@@ -31,6 +31,8 @@ import ConfirmationDialog from "./ConfirmationDialog";
 import {
   createEmptyBackgroundSlide,
   resolveSlideExistingUrls,
+  normalizeDisplayTitle,
+  pickDisplayTitle,
 } from "@/utils/backgroundSlides";
 
 const ProgressOverlay = ({ progress }) => (
@@ -92,7 +94,8 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
           noSlides: "لم تُضف خلفيات بعد.",
           uploadEn: "تحميل إنجليزي",
           uploadAr: "تحميل عربي",
-          title: "العنوان",
+          titleEn: "العنوان (إنجليزي)",
+          titleAr: "العنوان (عربي)",
           titleX: "موضع العنوان X (%)",
           titleY: "موضع العنوان Y (%)",
           opacity: "شفافية الوسيط",
@@ -115,7 +118,8 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
           noSlides: "No backgrounds added yet.",
           uploadEn: "Upload English",
           uploadAr: "Upload Arabic",
-          title: "Title",
+          titleEn: "Title (English)",
+          titleAr: "Title (Arabic)",
           titleX: "Title position X (%)",
           titleY: "Title position Y (%)",
           titleSize: "Title size (px)",
@@ -186,10 +190,11 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
 
   const normalizeDraft = (raw) => {
     const urls = resolveSlideExistingUrls(raw);
+    const dt = normalizeDisplayTitle(raw.displayTitle);
     const normalized = {
       ...raw,
       ...urls,
-      displayTitle: String(raw.displayTitle ?? "").trim(),
+      displayTitle: { en: dt.en.trim(), ar: dt.ar.trim() },
       titlePosition: {
         x: Number(raw.titlePosition?.x ?? 50),
         y: Number(raw.titlePosition?.y ?? 50),
@@ -331,7 +336,7 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
                   {t.sequence} {index + 1}
                 </Typography>
                 <Typography fontWeight="bold" noWrap>
-                  {slide.displayTitle || "—"}
+                  {pickDisplayTitle(slide.displayTitle, language) || "—"}
                 </Typography>
                 <Typography variant="caption" display="block">
                   {t.opacity}: {pct(slide.opacity)}% · {t.darkOverlay}: {pct(slide.darkOverlay)}% · {t.lightOverlay}:{" "}
@@ -375,11 +380,19 @@ const BackgroundSlideManager = forwardRef(function BackgroundSlideManager(
         <DialogContent>
           <TextField
             fullWidth
-            label={t.title}
-            value={draft.displayTitle}
-            onChange={(e) => setDraft((d) => ({ ...d, displayTitle: e.target.value }))}
+            label={t.titleEn}
+            value={normalizeDisplayTitle(draft.displayTitle).en}
+            onChange={(e) => setDraft((d) => ({ ...d, displayTitle: { ...normalizeDisplayTitle(d.displayTitle), en: e.target.value } }))}
             margin="normal"
             sx={{ mt: 1 }}
+          />
+          <TextField
+            fullWidth
+            label={t.titleAr}
+            value={normalizeDisplayTitle(draft.displayTitle).ar}
+            onChange={(e) => setDraft((d) => ({ ...d, displayTitle: { ...normalizeDisplayTitle(d.displayTitle), ar: e.target.value } }))}
+            margin="normal"
+            inputProps={{ dir: "rtl" }}
           />
 
           <Typography variant="body2" sx={{ mt: 1 }}>

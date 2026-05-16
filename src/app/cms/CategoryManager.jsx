@@ -55,8 +55,10 @@ export default function CategoryManager({ onChange }) {
   const [tree, setTree] = useState([]);
   const [selectedParent, setSelectedParent] = useState(null);
   const [newName, setNewName] = useState("");
+  const [newNameAr, setNewNameAr] = useState("");
   const [editing, setEditing] = useState(null);
   const [editingName, setEditingName] = useState("");
+  const [editingNameAr, setEditingNameAr] = useState("");
   const [expandedNodes, setExpandedNodes] = useState(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState("create");
@@ -82,8 +84,10 @@ export default function CategoryManager({ onChange }) {
       addRootCategory: "Add Root Category",
       addNewCategory: "Add New Category",
       editCategory: "Edit Category",
-      categoryName: "Category Name",
-      enterCategoryName: "Enter category name",
+      categoryName: "Category Name (English)",
+      categoryNameAr: "Category Name (Arabic)",
+      enterCategoryName: "Enter category name in English",
+      enterCategoryNameAr: "أدخل اسم الفئة بالعربية",
       noParent: "No Parent (Root Category)",
       cancel: "Cancel",
       create: "Create",
@@ -107,8 +111,10 @@ export default function CategoryManager({ onChange }) {
       addRootCategory: "إضافة فئة رئيسية",
       addNewCategory: "إضافة فئة جديدة",
       editCategory: "تعديل الفئة",
-      categoryName: "اسم الفئة",
-      enterCategoryName: "أدخل اسم الفئة",
+      categoryName: "اسم الفئة (إنجليزي)",
+      categoryNameAr: "اسم الفئة (عربي)",
+      enterCategoryName: "Enter category name in English",
+      enterCategoryNameAr: "أدخل اسم الفئة بالعربية",
       noParent: "بدون أب (فئة رئيسية)",
       cancel: "إلغاء",
       create: "إنشاء",
@@ -170,12 +176,13 @@ export default function CategoryManager({ onChange }) {
     if (!newName.trim()) return;
     try {
       const formData = new FormData();
-      formData.append("name", JSON.stringify({ en: newName.trim() }));
+      formData.append("name", JSON.stringify({ en: newName.trim(), ar: newNameAr.trim() }));
       if (selectedParent) formData.append("parent", selectedParent);
       if (selectedIcon) formData.append("icon", selectedIcon);
 
       await createCategory(formData);
       setNewName("");
+      setNewNameAr("");
       setSelectedParent(null);
       setSelectedIcon(null);
       setIconPreview(null);
@@ -191,13 +198,14 @@ export default function CategoryManager({ onChange }) {
     if (!editingName.trim()) return;
     try {
       const formData = new FormData();
-      formData.append("name", JSON.stringify({ en: editingName }));
+      formData.append("name", JSON.stringify({ en: editingName.trim(), ar: editingNameAr.trim() }));
       if (selectedIcon) formData.append("icon", selectedIcon);
       if (removeIcon) formData.append("removeIcon", "true");
 
       await updateCategory(id, formData);
       setEditing(null);
       setEditingName("");
+      setEditingNameAr("");
       setSelectedIcon(null);
       setIconPreview(null);
       setDialogOpen(false);
@@ -294,6 +302,7 @@ export default function CategoryManager({ onChange }) {
   const openCreateDialog = (parentId = null) => {
     setSelectedParent(parentId);
     setNewName("");
+    setNewNameAr("");
     setSelectedIcon(null);
     setIconPreview(null);
     setRemoveIcon(false);
@@ -305,6 +314,7 @@ export default function CategoryManager({ onChange }) {
   const openEditDialog = (row) => {
     setEditing(row._id);
     setEditingName(row.name?.en || "");
+    setEditingNameAr(row.name?.ar || "");
     setSelectedIcon(null);
     setIconPreview(row.icon || null);
     setRemoveIcon(false);
@@ -355,7 +365,9 @@ export default function CategoryManager({ onChange }) {
                   sx={{ width: 24, height: 24, borderRadius: 0.5, objectFit: "contain" }}
                 />
               )}
-              <Typography sx={{ flex: 1 }}>{row.name?.en}</Typography>
+              <Typography sx={{ flex: 1 }}>
+                {language === "ar" ? (row.name?.ar || row.name?.en) : (row.name?.en || row.name?.ar)}
+              </Typography>
             </Box>
           </TableCell>
           <TableCell align="center">
@@ -443,6 +455,15 @@ export default function CategoryManager({ onChange }) {
               placeholder={t.enterCategoryName}
               margin="normal"
             />
+            <TextField
+              fullWidth
+              label={t.categoryNameAr}
+              value={dialogMode === "create" ? newNameAr : editingNameAr}
+              onChange={(e) => dialogMode === "create" ? setNewNameAr(e.target.value) : setEditingNameAr(e.target.value)}
+              placeholder={t.enterCategoryNameAr}
+              margin="normal"
+              inputProps={{ dir: "rtl" }}
+            />
 
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>{t.uploadIcon} (Optional)</Typography>
@@ -490,7 +511,7 @@ export default function CategoryManager({ onChange }) {
                 </MenuItem>
                 {allCategories.map((cat) => (
                   <MenuItem key={cat._id} value={cat._id}>
-                    {"  ".repeat(cat.depth || 0)} {cat.name?.en}
+                    {"  ".repeat(cat.depth || 0)} {language === "ar" ? (cat.name?.ar || cat.name?.en) : (cat.name?.en || cat.name?.ar)}
                   </MenuItem>
                 ))}
               </Select>
@@ -514,6 +535,7 @@ export default function CategoryManager({ onChange }) {
             onClick={() => dialogMode === "create" ? handleCreateWithFeedback() : handleEditSave(editing)}
             variant="contained"
             disabled={dialogMode === "create" ? !newName.trim() : !editingName.trim()}
+
           >
             {dialogMode === "create" ? t.create : t.update}
           </Button>

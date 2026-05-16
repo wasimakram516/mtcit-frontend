@@ -1,5 +1,24 @@
 /** Normalize DisplayMedia.layers or Background API docs into a slideshow slide list. */
 
+/**
+ * Normalize displayTitle to always be { en, ar } regardless of whether
+ * the stored value is a legacy plain string or the new bilingual object.
+ */
+export function normalizeDisplayTitle(raw) {
+  if (!raw) return { en: "", ar: "" };
+  if (typeof raw === "object" && ("en" in raw || "ar" in raw)) {
+    return { en: raw.en || "", ar: raw.ar || "" };
+  }
+  // Legacy plain string — treat as English
+  return { en: String(raw), ar: "" };
+}
+
+/** Pick the title string for a given language, falling back to the other language. */
+export function pickDisplayTitle(displayTitle, language = "en") {
+  const dt = normalizeDisplayTitle(displayTitle);
+  return language === "ar" ? (dt.ar || dt.en) : (dt.en || dt.ar);
+}
+
 export function pickSlideSource(slide, language = "en") {
   if (!slide) return { src: null, type: "image" };
   const isAr = language === "ar";
@@ -39,7 +58,7 @@ export function normalizeSlidesForPlayback(rawSlides = []) {
       opacity: slide.opacity ?? 1,
       darkOverlay: slide.darkOverlay ?? 0,
       lightOverlay: slide.lightOverlay ?? 0,
-      displayTitle: slide.displayTitle ?? slide.title ?? "",
+      displayTitle: normalizeDisplayTitle(slide.displayTitle ?? slide.title ?? ""),
       titleFontSize: Number(slide.titleFontSize ?? 56),
       titlePosition: slide.titlePosition || { x: 50, y: 50 },
     }));
@@ -80,6 +99,7 @@ export function serializeBackgroundSlidesForApi(slideList = []) {
     if (isFileEn) filesEn.push(slide.fileEn);
     const fileIndexAr = isFileAr ? filesAr.length : null;
     if (isFileAr) filesAr.push(slide.fileAr);
+    const dt = normalizeDisplayTitle(slide.displayTitle);
     return {
       fileIndexEn,
       fileIndexAr,
@@ -90,7 +110,7 @@ export function serializeBackgroundSlidesForApi(slideList = []) {
       opacity: slide.opacity ?? 1,
       darkOverlay: slide.darkOverlay ?? 0,
       lightOverlay: slide.lightOverlay ?? 0,
-      displayTitle: String(slide.displayTitle ?? "").trim(),
+      displayTitle: { en: dt.en.trim(), ar: dt.ar.trim() },
       titleFontSize: Number(slide.titleFontSize ?? 56),
       titlePosition: {
         x: Number(slide.titlePosition?.x ?? 50),
@@ -122,7 +142,7 @@ export const createEmptyBackgroundSlide = (slide = {}) => {
     opacity: slide.opacity ?? 1,
     darkOverlay: slide.darkOverlay ?? 0,
     lightOverlay: slide.lightOverlay ?? 0,
-    displayTitle: slide.displayTitle ?? slide.title ?? "",
+    displayTitle: normalizeDisplayTitle(slide.displayTitle ?? slide.title ?? ""),
     titleFontSize: Number(slide.titleFontSize ?? 56),
     titlePosition: slide.titlePosition || { x: 50, y: 50 },
     isActive: slide.isActive !== undefined ? slide.isActive : true,

@@ -12,11 +12,13 @@ import {
 } from "@/services/BackgroundService";
 import { useLanguage } from "@/app/context/LanguageContext";
 import BackgroundSlideManager from "./BackgroundSlideManager";
-import { createEmptyBackgroundSlide } from "@/utils/backgroundSlides";
+import { createEmptyBackgroundSlide, normalizeDisplayTitle } from "@/utils/backgroundSlides";
 
 function draftToFormData(draft) {
   const fd = new FormData();
-  fd.append("displayTitle", draft.displayTitle || "");
+  const dt = normalizeDisplayTitle(draft.displayTitle);
+  fd.append("displayTitleEn", dt.en);
+  fd.append("displayTitleAr", dt.ar);
   fd.append("titlePosition", JSON.stringify(draft.titlePosition || { x: 50, y: 50 }));
   fd.append("titleFontSize", String(draft.titleFontSize ?? 56));
   fd.append("opacity", String(draft.opacity ?? 1));

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Typography } from "@mui/material";
-import { normalizeSlidesForPlayback, pickSlideSource } from "@/utils/backgroundSlides";
+import { normalizeSlidesForPlayback, pickSlideSource, pickDisplayTitle } from "@/utils/backgroundSlides";
 
 const IMAGE_DURATION_MS = 30000;
 
@@ -63,7 +63,7 @@ export default function BackgroundSlideshow({
   const opacity = current.opacity ?? 1;
   const dark = current.darkOverlay ?? 0;
   const light = current.lightOverlay ?? 0;
-  const title = current.displayTitle || "";
+  const title = pickDisplayTitle(current.displayTitle, language);
   const titlePos = current.titlePosition || { x: 50, y: 50 };
   const titleFontPx = Math.max(24, Math.min(120, Number(current.titleFontSize ?? 56)));
 

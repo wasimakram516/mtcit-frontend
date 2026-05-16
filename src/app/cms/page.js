@@ -678,7 +678,7 @@ export default function CMSPage() {
         >
           {opts.map((o) => (
             <MenuItem key={o._id} value={o._id}>
-              {o.name?.en || o.name?.ar || o._id}
+              {language === "ar" ? (o.name?.ar || o.name?.en) : (o.name?.en || o.name?.ar) || o._id}
             </MenuItem>
           ))}
         </TextField>
@@ -781,7 +781,10 @@ export default function CMSPage() {
                     
                     // Build the display path
                     const names = item.categoryPath
-                      .map(id => nodeMap[id]?.name?.en || '?')
+                      .map(id => {
+                        const node = nodeMap[id];
+                        return language === "ar" ? (node?.name?.ar || node?.name?.en || '?') : (node?.name?.en || node?.name?.ar || '?');
+                      })
                       .filter(Boolean);
                     return names.join(' / ');
                   }
