@@ -62,6 +62,9 @@ export default function CMSBackgroundManager() {
           deleteError: "Failed to delete",
         };
 
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; });
+
   const load = useCallback(async () => {
     try {
       const rows = await getBackgrounds();
@@ -75,11 +78,11 @@ export default function CMSBackgroundManager() {
         )
       );
     } catch (err) {
-      setMessage({ type: "error", text: err?.message || t.loadError });
+      setMessage({ type: "error", text: err?.message || tRef.current.loadError });
     } finally {
       setLoading(false);
     }
-  }, [t.loadError]);
+  }, []);
 
   useEffect(() => {
     load();

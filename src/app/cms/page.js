@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -320,16 +320,17 @@ export default function CMSPage() {
     }
   }, [showMessage]);
 
-  const syncMediaAndCategories = useCallback(() => {
-    fetchMedia();
-    requestCategoryReload();
-  }, [fetchMedia, requestCategoryReload]);
+  const syncRef = useRef({ fetchMedia, requestCategoryReload });
+  useEffect(() => {
+    syncRef.current = { fetchMedia, requestCategoryReload };
+  });
 
   useEffect(() => {
     if (activeTab === 0) {
-      syncMediaAndCategories();
+      syncRef.current.fetchMedia();
+      syncRef.current.requestCategoryReload();
     }
-  }, [activeTab, syncMediaAndCategories]);
+  }, [activeTab]);
 
   const showInternalMessage = (text, type = "success") => {
     setInternalMessage({ text, type });
