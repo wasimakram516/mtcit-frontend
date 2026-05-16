@@ -87,6 +87,7 @@ export default function Controller() {
     setOpenCategoryNode(null);
     setSelectedLeafId(null);
     setSelectedMediaSlug(null);
+    setMediaForLeaf(null);
     sendCategorySelection("", "", languageRef.current);
   }, [sendCategorySelection]);
 
@@ -726,6 +727,10 @@ export default function Controller() {
                 <Button
                   variant="contained"
                   onClick={() => {
+                    setSelectedLeafId(null);
+                    setSelectedPath([]);
+                    setSelectedMediaSlug(null);
+                    sendCategorySelection("", "", language);
                     if (parentNode) {
                       setOpenCategoryNode(parentNode._id);
                     } else {
@@ -800,6 +805,8 @@ export default function Controller() {
                             variant="contained"
                             onClick={() => {
                               setSelectedLeafId(null);
+                              setSelectedPath([]);
+                              setSelectedMediaSlug(null);
                               setOpenCategoryNode(node._id);
                               sendCategorySelection("", "", language);
                             }}
