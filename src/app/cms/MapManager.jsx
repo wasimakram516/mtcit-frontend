@@ -18,18 +18,19 @@ import { fetchCategories, updateCategoryWithProgress } from "@/services/Category
 import ConfirmationDialog from "@/app/components/ConfirmationDialog";
 import { normalizeMapEmbedUrl } from "@/utils/mapEmbeds";
 
-function flattenCategories(nodes, parentNames = []) {
+function flattenCategories(nodes, parentNames = [], parentIds = []) {
   return (nodes || []).flatMap((node) => {
     const currentNames = [...parentNames, node.name?.en || node.name?.ar || String(node._id)];
+    const currentIds = [...parentIds, String(node._id)];
     const currentNode = {
       _id: String(node._id),
       label: currentNames.join(" / "),
       metadata: node.metadata || {},
       name: node.name || {},
-      categoryPath: [...(node.path || []).map(String), String(node._id)],
+      categoryPath: currentIds, // built from tree traversal, not node.path which can be wrong in DB
       children: node.children || [],
     };
-    return [currentNode, ...flattenCategories(node.children || [], currentNames)];
+    return [currentNode, ...flattenCategories(node.children || [], currentNames, currentIds)];
   });
 }
 
