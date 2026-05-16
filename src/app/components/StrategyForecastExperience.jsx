@@ -74,9 +74,50 @@ const copy = {
 
 // Gas car SVG — matches drawGasCar() from the HTML reference
 // viewBox 0 0 52 22: w=52, h=22 (h≈w*0.42=21.84)
+// Exhaust at (46.8, 13.6) in viewBox "0 0 52 22"
+const SMOKE_PARTICLES = [
+  { delay: "0s",    dur: "1.4s", r: 4,   tx: "0;2;-4;-10",  ty: "0;-8;-18;-28"  },
+  { delay: "0.2s",  dur: "1.6s", r: 5,   tx: "0;-3;-8;-14", ty: "0;-9;-20;-30"  },
+  { delay: "0.4s",  dur: "1.3s", r: 3.5, tx: "0;3;-2;-9",   ty: "0;-7;-16;-26"  },
+  { delay: "0.65s", dur: "1.7s", r: 6,   tx: "0;-4;-10;-16",ty: "0;-10;-22;-32" },
+  { delay: "0.9s",  dur: "1.5s", r: 4.5, tx: "0;2;-5;-12",  ty: "0;-8;-19;-29"  },
+  { delay: "1.1s",  dur: "1.4s", r: 3.8, tx: "0;-2;-7;-13", ty: "0;-8;-17;-27"  },
+  { delay: "1.35s", dur: "1.8s", r: 5.5, tx: "0;3;-3;-11",  ty: "0;-11;-23;-34" },
+];
+
+function SmokeParticle({ delay, dur, r, tx, ty }) {
+  const txArr = tx.split(";");
+  const tyArr = ty.split(";");
+  const translateValues = txArr.map((x, i) => `${x},${tyArr[i]}`).join("; ");
+  return (
+    // filter="url(#smokeBlur)" makes circles look like real billowing smoke clouds
+    <circle cx="46.8" cy="13.6" r={r} fill="rgb(80,80,80)" opacity="0" filter="url(#smokeBlur)">
+      <animateTransform
+        attributeName="transform"
+        type="translate"
+        values={translateValues}
+        keyTimes="0;0.25;0.6;1"
+        dur={dur}
+        begin={delay}
+        repeatCount="indefinite"
+        calcMode="spline"
+        keySplines="0.25 0.1 0.25 1;0.25 0.1 0.25 1;0.25 0.1 0.25 1"
+      />
+      <animate attributeName="r"       values={`${r};${r * 2.2};${r * 4};${r * 5.5}`}           keyTimes="0;0.18;0.55;1" dur={dur} begin={delay} repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0;0.9;0.7;0"                                       keyTimes="0;0.08;0.4;1"  dur={dur} begin={delay} repeatCount="indefinite" />
+      <animate attributeName="fill"    values="rgb(60,60,60);rgb(100,100,100);rgb(190,190,190)"   keyTimes="0;0.25;1"      dur={dur} begin={delay} repeatCount="indefinite" />
+    </circle>
+  );
+}
+
 function GasCarSVG({ s = 1 }) {
   return (
-    <svg width={52 * s} height={22 * s} viewBox="0 0 52 22" style={{ display: "block" }}>
+    <svg width={52 * s} height={22 * s} viewBox="0 0 52 22" style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <filter id="smokeBlur" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" />
+        </filter>
+      </defs>
       {/* Body */}
       <rect x="0" y="4.84" width="52" height="11.44" rx="3" fill="#C0392B" />
       {/* Roof / cabin trapezoid */}
@@ -95,6 +136,10 @@ function GasCarSVG({ s = 1 }) {
       {/* Front wheel */}
       <circle cx="40.04" cy="16.28" r="4.84" fill="#111" />
       <circle cx="40.04" cy="16.28" r="2.86" fill="#2a2a2a" />
+      {/* Smoke from exhaust — drawn last so it appears above car body */}
+      {SMOKE_PARTICLES.map((p, i) => (
+        <SmokeParticle key={i} {...p} />
+      ))}
     </svg>
   );
 }
@@ -187,45 +232,34 @@ function Vehicle({ electric, size = 1, top = "50%", left = "0%", popping = false
           {/* Popping burst — centered on badge when vehicle converts to EV */}
           {popping && (
             <>
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: "50%", left: "50%",
-                  transform: "translate(-50%,-50%)",
-                  width: `${28 * size}px`,
-                  height: `${28 * size}px`,
-                  borderRadius: "50%",
-                  border: "2px solid rgba(43,228,149,0.9)",
-                  animation: "evBurst 0.8s ease-out forwards",
-                  "@keyframes evBurst": {
-                    "0%": { transform: "translate(-50%,-50%) scale(0.4)", opacity: 0.95 },
-                    "100%": { transform: "translate(-50%,-50%) scale(2.2)", opacity: 0 },
-                  },
-                  pointerEvents: "none",
-                }}
-              />
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Box
-                  key={i}
-                  sx={{
-                    position: "absolute",
-                    top: "50%", left: "50%",
-                    width: `${5 * size}px`,
-                    height: `${5 * size}px`,
-                    borderRadius: "50%",
-                    bgcolor: ["#00e896","#00d4ff","#a0ff60","#50ffcc","#00c87a","#ffffff"][i],
-                    animation: `evSpark${i} 0.8s ease-out forwards`,
-                    [`@keyframes evSpark${i}`]: {
-                      "0%": { transform: "translate(-50%,-50%) scale(0.8)", opacity: 1 },
-                      "100%": {
-                        transform: `translate(calc(-50% + ${Math.cos((i / 6) * Math.PI * 2) * 22 * size}px), calc(-50% + ${Math.sin((i / 6) * Math.PI * 2) * 22 * size}px)) scale(0.3)`,
-                        opacity: 0,
-                      },
+              {/* Big outer shockwave ring */}
+              <Box sx={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:`${70*size}px`, height:`${70*size}px`, borderRadius:"50%", border:`3px solid rgba(0,232,150,0.95)`, animation:"evShockwave 0.7s ease-out forwards", pointerEvents:"none",
+                "@keyframes evShockwave":{ "0%":{transform:"translate(-50%,-50%) scale(0.2)", opacity:1}, "100%":{transform:"translate(-50%,-50%) scale(1)", opacity:0} } }} />
+              {/* Second inner ring */}
+              <Box sx={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:`${44*size}px`, height:`${44*size}px`, borderRadius:"50%", border:`2px solid rgba(160,255,96,0.9)`, animation:"evShockwave2 0.6s 0.1s ease-out forwards", pointerEvents:"none",
+                "@keyframes evShockwave2":{ "0%":{transform:"translate(-50%,-50%) scale(0.3)", opacity:1}, "100%":{transform:"translate(-50%,-50%) scale(1.1)", opacity:0} } }} />
+              {/* 10 sparks flying outward */}
+              {Array.from({ length: 10 }).map((_, i) => {
+                const angle = (i / 10) * Math.PI * 2;
+                const dist = 36 * size;
+                const colors = ["#00e896","#00d4ff","#a0ff60","#50ffcc","#00c87a","#ffffff","#b0ffb0","#00e896","#a0ff60","#50ffcc"];
+                return (
+                  <Box key={i} sx={{
+                    position:"absolute", top:"50%", left:"50%",
+                    width:`${7*size}px`, height:`${7*size}px`,
+                    borderRadius:"50%", bgcolor: colors[i],
+                    animation:`evSpark${i} 0.75s ease-out forwards`,
+                    [`@keyframes evSpark${i}`]:{
+                      "0%":{ transform:"translate(-50%,-50%) scale(1)", opacity:1 },
+                      "100%":{ transform:`translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px)) scale(0)`, opacity:0 }
                     },
-                    pointerEvents: "none",
-                  }}
-                />
-              ))}
+                    pointerEvents:"none",
+                  }} />
+                );
+              })}
+              {/* Flash white overlay on badge */}
+              <Box sx={{ position:"absolute", inset:0, borderRadius:`${5*size}px`, bgcolor:"rgba(255,255,255,0.95)", animation:"evFlash 0.4s ease-out forwards", pointerEvents:"none",
+                "@keyframes evFlash":{ "0%":{opacity:1}, "100%":{opacity:0} } }} />
             </>
           )}
         </Box>
@@ -255,17 +289,19 @@ export default function StrategyForecastExperience({
   const celebrationActive = safeProgress >= 96;
   const nightMode = safeProgress >= 72;
 
+  // 2 lanes matching HTML reference: lane 0 = top (smaller, perspective), lane 1 = bottom (larger)
+  // xFrac: 0.04 + i*0.096 for i=0..9, alternating lanes
   const vehicleSlots = [
-    { top: "28%", left: "14%", lane: 0, size: 0.82 },
-    { top: "42%", left: "19%", lane: 1, size: 0.88 },
-    { top: "56%", left: "24%", lane: 2, size: 0.96 },
-    { top: "30%", left: "31%", lane: 0, size: 0.82 },
-    { top: "44%", left: "38%", lane: 1, size: 0.88 },
-    { top: "58%", left: "46%", lane: 2, size: 0.96 },
-    { top: "32%", left: "54%", lane: 0, size: 0.82 },
-    { top: "46%", left: "63%", lane: 1, size: 0.88 },
-    { top: "60%", left: "73%", lane: 2, size: 0.96 },
-    { top: "34%", left: "83%", lane: 0, size: 0.82 },
+    { top: "26%", left: "4%",  lane: 0, size: 1.0  },
+    { top: "72%", left: "13%", lane: 1, size: 1.32 },
+    { top: "26%", left: "23%", lane: 0, size: 1.0  },
+    { top: "72%", left: "33%", lane: 1, size: 1.32 },
+    { top: "26%", left: "43%", lane: 0, size: 1.0  },
+    { top: "72%", left: "52%", lane: 1, size: 1.32 },
+    { top: "26%", left: "62%", lane: 0, size: 1.0  },
+    { top: "72%", left: "71%", lane: 1, size: 1.32 },
+    { top: "26%", left: "81%", lane: 0, size: 1.0  },
+    { top: "72%", left: "90%", lane: 1, size: 1.32 },
   ];
 
   useEffect(() => {
@@ -431,17 +467,17 @@ export default function StrategyForecastExperience({
               }}
             />
 
-            {[0, 1, 2].map((laneIndex) => (
+            {[0, 1].map((laneIndex) => (
               <Box
                 key={laneIndex}
                 sx={{
                   position: "absolute",
-                  left: `${laneIndex === 0 ? 7 : laneIndex === 1 ? 4 : 1}%`,
-                  right: `${laneIndex === 0 ? 7 : laneIndex === 1 ? 4 : 1}%`,
-                  top: `${laneIndex === 0 ? 12 : laneIndex === 1 ? 36 : 60}%`,
-                  height: 3,
+                  left: `${laneIndex === 0 ? 5 : 1}%`,
+                  right: `${laneIndex === 0 ? 5 : 1}%`,
+                  top: `${laneIndex === 0 ? 26 : 70}%`,
+                  height: laneIndex === 0 ? 2 : 3,
                   overflow: "hidden",
-                  opacity: laneIndex === 0 ? 0.62 : laneIndex === 1 ? 0.78 : 0.9,
+                  opacity: laneIndex === 0 ? 0.65 : 0.88,
                   zIndex: 1,
                 }}
               >
@@ -451,7 +487,7 @@ export default function StrategyForecastExperience({
                     height: "100%",
                     backgroundImage:
                       "repeating-linear-gradient(90deg, rgba(255,220,88,0) 0 28px, rgba(255,220,88,0.9) 28px 54px, rgba(255,220,88,0) 54px 92px)",
-                    animation: `roadMove ${laneIndex === 0 ? 5.8 : laneIndex === 1 ? 5 : 4.3}s linear infinite`,
+                    animation: `roadMove ${laneIndex === 0 ? 14 : 10}s linear infinite`,
                     "@keyframes roadMove": {
                       "0%": { transform: "translateX(0)" },
                       "100%": { transform: "translateX(-28%)" },
@@ -476,7 +512,7 @@ export default function StrategyForecastExperience({
                 <Vehicle
                   key={`vehicle-${index}`}
                   electric={electric}
-                  size={(interactive ? 0.9 : 0.94) * slot.size}
+                  size={(interactive ? 1.1 : 1.2) * slot.size}
                   top={slot.top}
                   left={slot.left}
                   popping={poppingVehicles.includes(index)}
@@ -486,48 +522,55 @@ export default function StrategyForecastExperience({
           </Box>
 
           {celebrationActive && (
-            <Box
-              sx={{
-                position: "absolute",
-                inset: 0,
-                pointerEvents: "none",
-              }}
-            >
-              {Array.from({ length: 18 }).map((_, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    position: "absolute",
-                    left: `${18 + (index % 6) * 12}%`,
-                    top: `${18 + Math.floor(index / 6) * 15}%`,
-                    width: 10,
-                    height: 18,
-                    borderRadius: "12px 12px 2px 12px",
-                    bgcolor: index % 2 === 0 ? "#2BE495" : "#A6FF7D",
-                    opacity: 0.82,
-                    animation: `celebrateLeaf ${1.6 + (index % 3) * 0.25}s ease-in-out ${index * 0.05}s infinite`,
-                    "@keyframes celebrateLeaf": {
-                      "0%": { transform: "translateY(0) rotate(0deg) scale(0.8)", opacity: 0 },
-                      "20%": { opacity: 0.9 },
-                      "100%": { transform: "translateY(-42px) rotate(26deg) scale(1.1)", opacity: 0 },
-                    },
-                  }}
-                />
+            <Box sx={{ position:"absolute", inset:0, pointerEvents:"none", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", pt:"2%" }}>
+
+              {/* Confetti leaves */}
+              {Array.from({ length: 24 }).map((_, i) => (
+                <Box key={i} sx={{
+                  position:"absolute",
+                  left:`${8 + (i % 8) * 12}%`,
+                  top:`${10 + Math.floor(i / 8) * 28}%`,
+                  width: i % 3 === 0 ? 12 : 8,
+                  height: i % 3 === 0 ? 22 : 16,
+                  borderRadius:"10px 10px 2px 10px",
+                  bgcolor: ["#2BE495","#A6FF7D","#00D4FF","#FFE066","#50FFCC"][i % 5],
+                  animation:`cLeaf${i % 3} ${1.4 + (i % 4) * 0.2}s ease-in-out ${i * 0.04}s infinite`,
+                  "@keyframes cLeaf0":{ "0%":{transform:"translateY(0) rotate(-10deg)",opacity:0}, "20%":{opacity:1}, "100%":{transform:"translateY(-55px) rotate(30deg)",opacity:0} },
+                  "@keyframes cLeaf1":{ "0%":{transform:"translateY(0) rotate(10deg)",opacity:0}, "20%":{opacity:0.9}, "100%":{transform:"translateY(-50px) rotate(-20deg)",opacity:0} },
+                  "@keyframes cLeaf2":{ "0%":{transform:"translateY(0) rotate(0deg)",opacity:0}, "20%":{opacity:0.85}, "100%":{transform:"translateY(-60px) rotate(15deg)",opacity:0} },
+                }} />
               ))}
-              <Typography
-                sx={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "19%",
-                  transform: "translateX(-50%)",
-                  fontSize: { xs: "1.05rem", md: interactive ? "1.35rem" : "1.8rem" },
-                  fontWeight: 700,
-                  color: "#F4FFF7",
-                  textShadow: "0 8px 24px rgba(0,0,0,0.45)",
-                }}
-              >
-                {t.achieved}
-              </Typography>
+
+              {/* NET ZERO hero text — matches HTML reference spawnCelebration text */}
+              <Box sx={{ textAlign:"center", animation:"netZeroIn 0.5s ease-out forwards", "@keyframes netZeroIn":{ "0%":{opacity:0, transform:"scale(0.6)"}, "100%":{opacity:1, transform:"scale(1)"} } }}>
+                <Typography
+                  dir={isArabic ? "rtl" : "ltr"}
+                  sx={{
+                    fontSize: interactive ? "clamp(2rem,5vw,3.2rem)" : "clamp(2.4rem,4.5vw,4rem)",
+                    fontWeight: 900,
+                    color: "#00E896",
+                    textShadow: "0 0 40px rgba(0,232,150,0.7), 0 4px 16px rgba(0,0,0,0.5)",
+                    letterSpacing: "0.04em",
+                    lineHeight: 1.1,
+                    animation: "netZeroPulse 1.6s ease-in-out infinite",
+                    "@keyframes netZeroPulse":{ "0%,100%":{textShadow:"0 0 30px rgba(0,232,150,0.6)"}, "50%":{textShadow:"0 0 60px rgba(0,232,150,1), 0 0 100px rgba(0,232,150,0.4)"} },
+                  }}
+                >
+                  {isArabic ? "الحياد الصفري" : "NET ZERO"}
+                </Typography>
+                <Typography
+                  dir={isArabic ? "rtl" : "ltr"}
+                  sx={{
+                    mt: 0.5,
+                    fontSize: interactive ? "clamp(0.85rem,1.5vw,1.1rem)" : "clamp(1rem,1.6vw,1.3rem)",
+                    fontWeight: 600,
+                    color: "rgba(255,255,255,0.92)",
+                    textShadow: "0 2px 12px rgba(0,0,0,0.55)",
+                  }}
+                >
+                  {isArabic ? "2050 — قطاع النقل يحقق الحياد الصفري 🎉" : "2050 — Transport sector achieved net zero 🎉"}
+                </Typography>
+              </Box>
             </Box>
           )}
         </Box>
