@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { getWebSocketHost } from "@/utils/runtimeConfig";
 
@@ -40,6 +40,7 @@ export default function useWebSocketBigScreen() {
   const [currentExperienceState, setCurrentExperienceState] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState("en");
+  const loadingStartRef = useRef(0);
   const [carbonActive, setCarbonActive] = useState(false);
   const [carbonLevel, setCarbonLevel] = useState(50);
   const [categoryTree, setCategoryTree] = useState(null);
@@ -72,6 +73,7 @@ export default function useWebSocketBigScreen() {
 
     socketInstance.on("categorySelected", () => {
       console.log("Category selected - clearing stage, loading");
+      loadingStartRef.current = Date.now();
       setCurrentMedia(null);
       setCurrentExperience(null);
       setIsLoading(true);
@@ -81,19 +83,19 @@ export default function useWebSocketBigScreen() {
       console.log("Display media received:", mediaData);
       const next = mediaData == null ? null : normalizeDisplayMediaPayload(mediaData);
       setCurrentMedia(next);
-      if (next) {
-        setCurrentExperience(null);
-      }
-      setIsLoading(false);
+      if (next) setCurrentExperience(null);
+      // Ignore null clears that arrive immediately after categorySelected (they just clear old content)
+      const elapsed = Date.now() - loadingStartRef.current;
+      if (next !== null || elapsed > 800) setIsLoading(false);
     });
 
     socketInstance.on("displayExperience", (payload) => {
       console.log("Display experience received:", payload);
       setCurrentExperience(payload || null);
-      if (payload) {
-        setCurrentMedia(null);
-      }
-      setIsLoading(false);
+      if (payload) setCurrentMedia(null);
+      // Same guard — ignore the immediate null clear
+      const elapsed = Date.now() - loadingStartRef.current;
+      if (payload !== null || elapsed > 800) setIsLoading(false);
     });
 
     socketInstance.on("experienceStateChanged", (payload) => {
