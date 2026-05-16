@@ -225,8 +225,8 @@ export default function MapManager() {
           }}
         >
           {options.map((o) => (
-            <MenuItem key={o._id} value={o._id}>
-              {o.name?.en || o.name?.ar || o._id}
+            <MenuItem key={String(o._id)} value={String(o._id)}>
+              {o.name?.en || o.name?.ar || String(o._id)}
             </MenuItem>
           ))}
         </TextField>
