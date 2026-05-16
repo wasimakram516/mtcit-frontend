@@ -534,7 +534,7 @@ export default function StrategyForecastExperience({
 
         <Box sx={{ p: { xs: 2, md: 2.5 } }}>
           {showSlider && (
-            <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2.5 }}>
+            <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2.5 }} dir="ltr">
               <Typography variant="caption" sx={{ color: "rgba(246,252,246,0.86)", minWidth: 40 }}>
                 {t.from}
               </Typography>

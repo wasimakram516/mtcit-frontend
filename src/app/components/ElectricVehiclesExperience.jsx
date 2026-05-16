@@ -485,7 +485,7 @@ export default function ElectricVehiclesExperience({
               >
                 {metrics.current.year}
               </Box>
-              <Stack direction="row" alignItems="center" spacing={2}>
+              <Stack direction="row" alignItems="center" spacing={2} dir="ltr">
                 <Typography variant="caption" sx={{ color: "rgba(246,252,246,0.86)", minWidth: 40 }}>
                   {t.from}
                 </Typography>

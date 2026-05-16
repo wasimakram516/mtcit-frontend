@@ -154,7 +154,7 @@ export default function Controller() {
                 </Typography>
               </Stack>
 
-              <Stack direction="row" alignItems="center" spacing={2}>
+              <Stack direction="row" alignItems="center" spacing={2} dir="ltr">
                 <Typography variant="caption" sx={{ color: "rgba(248,252,246,0.82)", minWidth: 40 }}>
                   2030
                 </Typography>
@@ -246,7 +246,7 @@ export default function Controller() {
                 </Typography>
               </Stack>
 
-              <Stack direction="row" alignItems="center" spacing={2}>
+              <Stack direction="row" alignItems="center" spacing={2} dir="ltr">
                 <Typography variant="caption" sx={{ color: "rgba(248,252,246,0.82)", minWidth: 40 }}>
                   2017
                 </Typography>
