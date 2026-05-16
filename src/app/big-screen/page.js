@@ -138,6 +138,8 @@ export default function BigScreenPage() {
           interactive={false}
           embedUrl={currentExperience?.config?.embedUrl || ""}
           qrImageUrl={currentExperience?.config?.qrImageUrl || ""}
+          qrImageUrlEn={currentExperience?.config?.qrImageUrlEn || ""}
+          qrImageUrlAr={currentExperience?.config?.qrImageUrlAr || ""}
           qrPosition={currentExperience?.config?.qrPosition}
           qrSize={currentExperience?.config?.qrSize}
         />

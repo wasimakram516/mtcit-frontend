@@ -62,9 +62,12 @@ export default function MapManager() {
   const [tree, setTree] = useState([]);
   const [selectedPath, setSelectedPath] = useState([]);
   const [embedUrl, setEmbedUrl] = useState("");
-  const [qrFile, setQrFile] = useState(null);
-  const [qrPreview, setQrPreview] = useState("");
-  const [removeQr, setRemoveQr] = useState(false);
+  const [qrFileEn, setQrFileEn] = useState(null);
+  const [qrPreviewEn, setQrPreviewEn] = useState("");
+  const [removeQrEn, setRemoveQrEn] = useState(false);
+  const [qrFileAr, setQrFileAr] = useState(null);
+  const [qrPreviewAr, setQrPreviewAr] = useState("");
+  const [removeQrAr, setRemoveQrAr] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -90,18 +93,24 @@ export default function MapManager() {
   const applyCategoryConfig = (category) => {
     const config = category?.metadata?.mapEmbed || {};
     setEmbedUrl(normalizeMapEmbedUrl(config.embedUrl || ""));
-    setQrPreview(config.qrImageUrl || "");
-    setQrFile(null);
-    setRemoveQr(false);
+    setQrPreviewEn(config.qrImageUrlEn || config.qrImageUrl || "");
+    setQrPreviewAr(config.qrImageUrlAr || "");
+    setQrFileEn(null);
+    setQrFileAr(null);
+    setRemoveQrEn(false);
+    setRemoveQrAr(false);
     setIsFormOpen(true);
   };
 
   const resetFormForNewRecord = (path = []) => {
     setSelectedPath(path);
     setEmbedUrl("");
-    setQrFile(null);
-    setQrPreview("");
-    setRemoveQr(false);
+    setQrFileEn(null);
+    setQrFileAr(null);
+    setQrPreviewEn("");
+    setQrPreviewAr("");
+    setRemoveQrEn(false);
+    setRemoveQrAr(false);
     setMessage({ type: "", text: "" });
     setIsFormOpen(true);
   };
@@ -138,18 +147,15 @@ export default function MapManager() {
     });
   }, []);
 
-  const handleRemoveQr = () => {
-    setQrFile(null);
-    setQrPreview("");
-    setRemoveQr(true);
-  };
-
   const clearFormState = () => {
     setSelectedPath([]);
     setEmbedUrl("");
-    setQrFile(null);
-    setQrPreview("");
-    setRemoveQr(false);
+    setQrFileEn(null);
+    setQrFileAr(null);
+    setQrPreviewEn("");
+    setQrPreviewAr("");
+    setRemoveQrEn(false);
+    setRemoveQrAr(false);
     setIsFormOpen(false);
   };
 
@@ -182,13 +188,10 @@ export default function MapManager() {
         })
       );
 
-      if (removeQr) {
-        formData.append("removeMapQr", "true");
-      }
-
-      if (qrFile) {
-        formData.append("mapQr", qrFile);
-      }
+      if (removeQrEn) formData.append("removeMapQrEn", "true");
+      if (removeQrAr) formData.append("removeMapQrAr", "true");
+      if (qrFileEn) formData.append("mapQrEn", qrFileEn);
+      if (qrFileAr) formData.append("mapQrAr", qrFileAr);
 
       await updateCategoryWithProgress(selectedCategoryId, formData, (event) => {
         if (!event.total) return;
@@ -225,6 +228,8 @@ export default function MapManager() {
             qrPosition: { x: 72, y: 74 },
             qrSize: { width: 16, height: 16 },
             qrImageUrl: "",
+            qrImageUrlEn: "",
+            qrImageUrlAr: "",
           },
         })
       );
@@ -369,72 +374,58 @@ export default function MapManager() {
 
           {isFormOpen && (
           <Box>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              QR code image / video
+            <Typography fontWeight={600} sx={{ mb: 1.5 }}>
+              QR Code Media
             </Typography>
-            <Button variant="outlined" component="label">
-              Upload QR Media
-              <input
-                hidden
-                type="file"
-                accept="image/*,video/*"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  setQrFile(file || null);
-                  setRemoveQr(false);
-                  setQrPreview(file ? URL.createObjectURL(file) : "");
-                }}
-              />
-            </Button>
-
-            {qrPreview && (
-              <Box
-                sx={{
-                  mt: 2,
-                  width: 180,
-                  height: 180,
-                  borderRadius: 2,
-                  overflow: "hidden",
-                  position: "relative",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  bgcolor: "#f6f6f6",
-                }}
-              >
-                {loading && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
-                <IconButton
-                  size="small"
-                  onClick={handleRemoveQr}
-                  sx={{
-                    position: "absolute",
-                    top: 6,
-                    right: 6,
-                    bgcolor: "rgba(255,255,255,0.85)",
-                    zIndex: 6,
-                    "&:hover": { bgcolor: "#fff" },
-                  }}
-                >
-                  <Delete fontSize="small" color="error" />
-                </IconButton>
-                {/\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(String(qrPreview || "")) ? (
-                  <Box
-                    component="video"
-                    src={qrPreview}
-                    muted
-                    autoPlay
-                    loop
-                    playsInline
-                    sx={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                  />
-                ) : (
-                  <Box
-                    component="img"
-                    src={qrPreview}
-                    alt="QR preview"
-                    sx={{ width: "100%", height: "100%", objectFit: "contain" }}
-                  />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
+              {/* English QR */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>English QR</Typography>
+                <Button variant="outlined" component="label" size="small">
+                  Upload English QR
+                  <input hidden type="file" accept="image/*,video/*" onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    setQrFileEn(file || null);
+                    setRemoveQrEn(false);
+                    setQrPreviewEn(file ? URL.createObjectURL(file) : "");
+                  }} />
+                </Button>
+                {qrPreviewEn && (
+                  <Box sx={{ mt: 1.5, width: 160, height: 160, borderRadius: 2, overflow: "hidden", position: "relative", border: "1px solid rgba(0,0,0,0.08)", bgcolor: "#f6f6f6" }}>
+                    {loading && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                    <IconButton size="small" onClick={() => { setQrFileEn(null); setQrPreviewEn(""); setRemoveQrEn(true); }}
+                      sx={{ position: "absolute", top: 6, right: 6, bgcolor: "rgba(255,255,255,0.85)", zIndex: 6, "&:hover": { bgcolor: "#fff" } }}>
+                      <Delete fontSize="small" color="error" />
+                    </IconButton>
+                    <Box component="img" src={qrPreviewEn} alt="EN QR preview" sx={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                  </Box>
                 )}
               </Box>
-            )}
+
+              {/* Arabic QR */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Arabic QR (عربي)</Typography>
+                <Button variant="outlined" component="label" size="small">
+                  Upload Arabic QR
+                  <input hidden type="file" accept="image/*,video/*" onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    setQrFileAr(file || null);
+                    setRemoveQrAr(false);
+                    setQrPreviewAr(file ? URL.createObjectURL(file) : "");
+                  }} />
+                </Button>
+                {qrPreviewAr && (
+                  <Box sx={{ mt: 1.5, width: 160, height: 160, borderRadius: 2, overflow: "hidden", position: "relative", border: "1px solid rgba(0,0,0,0.08)", bgcolor: "#f6f6f6" }}>
+                    {loading && uploadProgress > 0 && <ProgressOverlay progress={uploadProgress} />}
+                    <IconButton size="small" onClick={() => { setQrFileAr(null); setQrPreviewAr(""); setRemoveQrAr(true); }}
+                      sx={{ position: "absolute", top: 6, right: 6, bgcolor: "rgba(255,255,255,0.85)", zIndex: 6, "&:hover": { bgcolor: "#fff" } }}>
+                      <Delete fontSize="small" color="error" />
+                    </IconButton>
+                    <Box component="img" src={qrPreviewAr} alt="AR QR preview" sx={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                  </Box>
+                )}
+              </Box>
+            </Stack>
           </Box>
           )}
 

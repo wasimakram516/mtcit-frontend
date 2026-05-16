@@ -283,6 +283,8 @@ export default function Controller() {
             interactive
             embedUrl={currentExperience?.config?.embedUrl || ""}
             qrImageUrl={currentExperience?.config?.qrImageUrl || ""}
+            qrImageUrlEn={currentExperience?.config?.qrImageUrlEn || ""}
+            qrImageUrlAr={currentExperience?.config?.qrImageUrlAr || ""}
             qrPosition={currentExperience?.config?.qrPosition}
             qrSize={currentExperience?.config?.qrSize}
           />

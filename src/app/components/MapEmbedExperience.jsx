@@ -29,11 +29,18 @@ export default function MapEmbedExperience({
   interactive = false,
   embedUrl = "",
   qrImageUrl = "",
+  qrImageUrlEn = "",
+  qrImageUrlAr = "",
 }) {
   const isArabic = language === "ar";
   const t = copy[language] || copy.en;
   const resolvedEmbedUrl = normalizeMapEmbedUrl(embedUrl);
-  const qrIsVideo = isVideoAsset(qrImageUrl);
+
+  // Pick language-specific QR, fall back to legacy single qrImageUrl
+  const resolvedQrUrl = isArabic
+    ? (qrImageUrlAr || qrImageUrlEn || qrImageUrl)
+    : (qrImageUrlEn || qrImageUrl || qrImageUrlAr);
+  const qrIsVideo = isVideoAsset(resolvedQrUrl);
 
   if (interactive) {
     return (
@@ -130,7 +137,7 @@ export default function MapEmbedExperience({
         height: "100%",
       }}
     >
-      {qrImageUrl ? (
+      {resolvedQrUrl ? (
         <Box
           sx={{
             position: "relative",
@@ -143,7 +150,7 @@ export default function MapEmbedExperience({
           {qrIsVideo ? (
             <Box
               component="video"
-              src={qrImageUrl}
+              src={resolvedQrUrl}
               autoPlay
               muted
               loop
@@ -161,7 +168,7 @@ export default function MapEmbedExperience({
           ) : (
             <Box
               component="img"
-              src={qrImageUrl}
+              src={resolvedQrUrl}
               alt="Map QR code"
               sx={{
                 position: "absolute",
