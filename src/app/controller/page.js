@@ -443,7 +443,7 @@ export default function Controller() {
 
       if (isExperienceNode(node)) {
         setSelectedPath(path);
-        setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
+        setSelectedLeafId(nodeId); setPendingNodeId(nodeId); setMediaForLeaf(null);
         setSelected({ category: node.name?.en || "", subcategory: "" });
         sendCategorySelection(null, null, language, path);
         setOpenCategoryNode(node.children && node.children.length ? nodeId : null);
@@ -458,7 +458,7 @@ export default function Controller() {
         setSelectedMediaSlug(null);
       } else {
         setSelectedPath(path);
-        setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
+        setSelectedLeafId(nodeId); setPendingNodeId(nodeId); setMediaForLeaf(null);
         setSelected({ category: node.name?.en || "", subcategory: "" });
         sendCategorySelection(null, null, language, path);
         setOpenCategoryNode(null);
@@ -497,7 +497,7 @@ export default function Controller() {
 
       if (isExperienceNode(node)) {
         setSelectedPath(path);
-        setSelectedLeafId(nodeId); setPendingNodeId(nodeId);
+        setSelectedLeafId(nodeId); setPendingNodeId(nodeId); setMediaForLeaf(null);
         setSelected({ category: node?.name?.en || category, subcategory: "" });
         sendCategorySelection(null, null, language, path);
         return;
@@ -937,7 +937,8 @@ export default function Controller() {
                   const showLeafMediaOnly =
                     leafSelectedUnderThisNode &&
                     leafMedia &&
-                    String(leafMedia.leafId) === String(selectedLeafId);
+                    String(leafMedia.leafId) === String(selectedLeafId) &&
+                    !isAnyPending; // don't show stale leaf media while a new selection is loading
                   const activeExperienceForLeaf =
                     currentExperience?.type &&
                     String(currentExperience.categoryId) === String(selectedLeafId);

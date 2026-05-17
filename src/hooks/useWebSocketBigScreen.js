@@ -131,16 +131,16 @@ export default function useWebSocketBigScreen() {
     socketInstance.on("displayExperience", (payload) => {
       console.log("Display experience received:", payload);
       setCurrentExperience(payload || null);
-      if (payload) setCurrentMedia(null);
+      setCurrentMedia(null); // always clear media when experience changes (or resets)
 
-      const elapsed = Date.now() - loadingStartRef.current;
-      if (!payload && elapsed <= 800) return;
-      // Experiences (SF, EV, Map) render instantly — clear loading after short render buffer
-      if (payload) {
-        setTimeout(() => { setIsLoading(false); socketInstance.emit("bigScreenReady"); }, 400);
-      } else {
+      if (!payload) {
+        // null = idle/reset — always clear immediately, no guard
         setIsLoading(false);
+        return;
       }
+
+      // Real experience arriving — only skip the immediate-null-clear guard for non-null
+      setTimeout(() => { setIsLoading(false); socketInstance.emit("bigScreenReady"); }, 400);
     });
 
     socketInstance.on("experienceStateChanged", (payload) => {
